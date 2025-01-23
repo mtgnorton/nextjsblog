@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 
@@ -17,6 +16,8 @@ const links = [
 ];
 
 export default function NavLinks() {
+  const pathname = usePathname();
+
   return (
     <>
       {links.map((link) => {
@@ -27,7 +28,7 @@ export default function NavLinks() {
             className={clsx(
               'mt-5 mb-5 text-link border-b-underline border-b-2 hover:text-hover',
               {
-                'text-visited': usePathname() === link.href,
+                'text-visited': pathname === link.href,
               }
             )}
           >
