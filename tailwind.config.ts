@@ -17,6 +17,10 @@ export default {
         visited: "rgba(var(--visited))",
         underline: "rgba(var(--underline))",
         hover: "rgba(var(--hover))",
+
+        light: "rgba(255, 255, 255)",
+        dark: "rgba(1, 36, 46)",
+        yellow: "rgba(241, 231, 208)",
       },
     },
   },

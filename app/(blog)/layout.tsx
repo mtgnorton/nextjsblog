@@ -1,6 +1,6 @@
 import Nav from "@/app/ui/components/nav";
 import Title from "@/app/ui/components/title";
-
+import Footer from "@/app/ui/components/footer";
 export default function Layout({
   children,
 }: {
@@ -23,7 +23,9 @@ export default function Layout({
         </div>
 
         {/* footer */}
-        <div></div>
+        <div className="justify-end mt-auto">
+            <Footer />
+        </div>
     </div>
   )
 }

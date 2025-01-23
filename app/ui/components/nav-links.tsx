@@ -9,10 +9,10 @@ import clsx from 'clsx';
 const links = [
   { name: 'Home', href: '/home'},
   {
-    name: 'directory',
-    href: '/directory',
+    name: 'All',
+    href: '/all',
   },
-  { name: 'tags', href: '/tags' },
+  { name: 'Tags', href: '/tags' },
 ];
 
 export default function NavLinks() {
@@ -26,7 +26,7 @@ export default function NavLinks() {
             key={link.name}
             href={link.href}
             className={clsx(
-              'mt-5 mb-5 text-link border-b-underline border-b-2 hover:text-hover',
+              'text-link border-b-underline border-b-2 hover:text-hover',
               {
                 'text-visited': pathname === link.href,
               }
