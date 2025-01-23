@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 移除数字输入框的默认样式，使其看起来像普通文本框 */
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* 移除 Chrome/Safari 浏览器中数字输入框内部的上下箭头按钮 */
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* 移除 Chrome/Safari 浏览器中数字输入框外部的上下箭头按钮 */
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.light {
+  --background: 255, 255, 255;
+  --heading: 35, 35, 51;
+  --primary: 35, 35, 51;
+  --link: 35, 35, 51;
+  --underline: 160, 0, 160;
+  --hover: 160, 0, 160;
+  background: rgba(var(--background));
+}
+
+.dark {
+  --background: 1, 36, 46; 
+  --heading: 238, 238, 238;
+  --primary: 221, 221, 221;
+  --link: 140, 194, 221;
+  --visited: 140, 194, 221;
+  --underline: 1, 36, 46;
+  --hover: 140, 194, 221;
+
+  background: rgba(var(--background));
+}
+
+.yellow {
+  --background: 241, 231, 208;   
+  --heading: 35, 35, 51;
+  --primary: 35, 35, 51;
+  --link: 35, 35, 51;
+  --underline: 160, 0, 160;
+  --hover: 160, 0, 160;
+  background: rgba(var(--background));
+}
+
+
