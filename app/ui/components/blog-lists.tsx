@@ -20,7 +20,7 @@ interface PostsArg {
   sort?: 'asc' | 'desc';
 }
 
-const ITEMS_PER_PAGE = 2;
+const ITEMS_PER_PAGE = 10;
 
 export async function getPosts(props?: PostsArg): Promise<PostsPagination> {
   const postsDirectory = path.join(process.cwd(), 'md');
