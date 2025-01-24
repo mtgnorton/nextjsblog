@@ -19,10 +19,11 @@ export async function getBlogPosts(props?: BlogListsProps): Promise<BlogPost[]> 
   const posts = fileNames.map((fileName) => {
     const filePath = path.join(postsDirectory, fileName);
     const stats = fs.statSync(filePath);
-    
+    const mtime = stats.mtime;
+    const updatedAt = `${mtime.toISOString().split('T')[0]} ${mtime.toTimeString().split(' ')[0].substring(0,5)}`;
     return {
       title: fileName.replace(/\.mdx$/, ''),
-      updatedAt: stats.mtime.toISOString().split('T')[0]
+      updatedAt
     };
   });
 
