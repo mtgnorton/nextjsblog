@@ -12,18 +12,19 @@ export default function Layout({
        <Title />
        </div>
         {/* menu */}
-        <div className="">
+        <div className="mt-10 mb-5">
           <Nav />
           </div> 
 
 
+
         {/* content */}
-        <div className="text-primary">
+        <div className="">
             {children}
         </div>
 
         {/* footer */}
-        <div className="justify-end mt-auto">
+        <div className=" mt-auto flex items-center justify-center">
             <Footer />
         </div>
     </div>

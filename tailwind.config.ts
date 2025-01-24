@@ -22,7 +22,28 @@ export default {
         dark: "rgba(1, 36, 46)",
         yellow: "rgba(241, 231, 208)",
       },
+      typography: {
+        DEFAULT: {
+          css: {
+            color: 'rgba(var(--primary))',
+            h1: {
+              color: 'rgba(var(--heading))',
+            },
+            h2: {
+              color: 'rgba(var(--heading))',
+            },
+            h3: {
+              color: 'rgba(var(--heading))',
+            },
+            ul: {
+              listStyleType: 'disc',
+            },
+          },
+        },
+      },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
 } satisfies Config;

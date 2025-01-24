@@ -1,0 +1,1229 @@
+- ## 概述
+	- HTTPS = HTTP + SSL(Secure Socket Layer)/TLS(Transport Layer Security), 在HTTP的基础上增加了SSL/TLS协议,用于加密和解密数据,确保数据传输的安全性,SSL是早期版本,现已被TLS取代,在浏览器中查看使用HTTPS的网站时,打开开发者工具,打开安全一栏,可以看到该网站使用的证书,tls版本和加密算法等
+- ## TLS版本
+	- ### TLS 1.0 (1999年,弃用)
+		- 第一个TLS版本,基于SSL 3.0开发
+		- 主要特性:
+			- 支持RSA和DH密钥交换
+			- 支持RC4、DES等对称加密算法
+			- 存在BEAST攻击等安全漏洞
+	- ### TLS 1.1 (2006年,弃用)
+		- 主要改进:
+			- 增加了对CBC模式的保护
+			- 增加了显式IV(初始化向量)
+			- 修复了一些TLS 1.0的安全问题
+	- ### TLS 1.2 (2008年)
+		- 重要改进:
+			- 支持更安全的加密套件(如AES-GCM)
+			- 支持SHA-256等更强的哈希算法
+			- 改进了PRF(伪随机函数)
+			- 目前仍广泛使用
+	- ### TLS 1.3 (2018年)
+		- 重大改进:
+			- 握手过程简化,只需1-RTT
+			- 0-RTT恢复会话
+			- 移除了不安全的加密算法
+			- 前向安全性得到增强
+			- 所有握手消息在ServerHello之后都加密
+			- 移除了静态RSA和DH密钥交换
+			- 目前是最新推荐版本
+- ## TLS 上下层协议
+	- TLS协议分为上层协议和下层协议,上层协议包含握手协议,警报协议,应用数据协议,下次为记录层协议(Record Layer Protocol),记录层协议的主要作用如下
+		- 分片: 将上层协议的数据分割成合适大小的块,每个块最大不超过 16KB
+		- 封装: 为每个数据块添加头部信息,标识数据类型、协议版本和长度
+		- 加密: 对每个数据块进行加密,确保数据传输的安全性
+		- 记录层协议头格式
+			- 每个 TLS 记录都以 5 字节的头部开始:
+				-
+				  ```
+				  |<- 1 ->|<------ 2 ------>|<----- 2 ---->|
+				  +--------+----------------+---------------+
+				  |  类型  |    版本号      |    长度      |
+				  +--------+----------------+---------------+
+				  ```
+				- 类型(Type): 1 字节
+					- 0x16: Handshake (握手)
+					- 0x17: Application Data (应用数据)
+					- 0x15: Alert (警告)
+				- 版本号(Version): 2 字节
+					- 0x0301: TLS 1.0
+					- 0x0302: TLS 1.1
+					- 0x0303: TLS 1.2/1.3
+				- 长度(Length): 2 字节
+					- 表示后续数据的长度
+			- 示例:
+				-
+				  ```
+				  16 03 01 01 4a  // 第一个 ClientHello 的记录层头
+				  ```
+				- 0x16: 表示这是握手消息
+				- 0x0301: 表示 TLS 1.0 记录层版本
+				- 0x014a: 表示后续数据长度为 330 字节
+		- 注意:
+			- TLS记录层协议的版本可以与握手协议中使用的版本不一致，这是TLS 1.3中的一个特别设计。这种设计主要是为了确保向后兼容性，让支持TLS 1.3的通信在网络中的其他设备（比如中间的代理或防火墙）仍然能够以TLS 1.2的方式处理TLS记录，即使实际的握手和数据传输使用的是TLS 1.3。
+			- 在TLS 1.2及之前的版本中，记录层的版本号通常与握手使用的版本相匹配。但在TLS 1.3中，为了改进安全性和性能同时避免中间设备的干扰，引入了以下变化：
+				- 记录层版本号：
+					- 在TLS 1.3中，所有传出的记录（无论是握手还是数据传输）的版本号都被设定为`0x0303`（即TLS 1.2），即使实际的握手使用的是TLS 1.3。
+				- 握手协议的版本：
+					- 握手协议的真正版本是通过`ClientHello`和`ServerHello`消息中的`supported_versions`扩展来指定的。这个扩展允许客户端和服务器协商实际要使用的最高TLS版本，包括TLS 1.3。
+- ## 加密算法
+	- 握手阶段涉及的加密算法
+		- ### 身份验证
+			- 基本原理:私钥加密,公钥验证
+			- RSA(Rivest-Shamir-Adleman)算法
+				- 对应RSA证书
+				- 兼容性好,广泛使用
+				- 密钥长度长,性能一般,常见密钥长度: 2048位(当前最低推荐长度), 3072位, 4096位(更高安全性)
+				- 签名填充方案对比
+				  |  特性  | PKCS v1.5 签名  | RSA-PSS  |
+				  |---|---|---|
+				  |  用途  | 数字签名 |  数字签名  |
+				  | 安全性  | 较弱（缺乏可证明安全性） | 强（可证明安全）  |
+				  | 填充结构  |   sd | 使用盐值和MGF |
+				  | 随机性  | 确定性（相同消息产生相同签名） | 概率性（相同消息产生不同签名）  |
+				  | 现代协议支持  | 广泛支持（传统系统） | TLS 1.3唯一支持的RSA方案  |
+				  | 性能  | 较快  | 较慢  |
+				  | 推荐使用  |  仅用于兼容性  | 推荐  |
+			- ECDSA(Elliptic Curve Digital Signature Algorithm)算法
+				- 对应ECC证书
+				- 是一种基于椭圆曲线的数字签名算法
+				- 性能好,密钥长度短,适合移动设备、物联网设备等资源受限环境下的应用场景
+		- ### 密钥交换:
+			- PSK(Pre-Shared Key)
+				- 最简单的方式双方提前约定好密钥,后续通信时直接使用这个密钥
+				- TLS1.3中的PSK指的是上次连接生成的PSK,客户端保存后,用于下次0RTT传输
+			- RSA
+				- 使用RSA算法进行密钥交换, 客户端使用公钥加密,服务端使用私钥解密
+					- 加密填充方案对比
+						-
+						  | 特性 | PKCS v1.5 加密 | PKCS OAEP |
+						  |---|---|---|
+						  | 用途 | 数据加密 | 数据加密 |
+						  | 安全性 | 较弱（易受Bleichenbacher攻击） | 强（可证明安全） |
+						  | 填充结构 | | 使用双重掩码（MGF） |
+						  | 随机性 | 部分随机（PS部分） | 完全随机 |
+						  | 现代协议支持 | 逐渐淘汰 | 广泛支持 |
+						  | 性能 | 较快 | 较慢 |
+						  | 推荐使用 | 不推荐 | 推荐 |
+					- RSA 模式有一个严重的缺点：它不是前向保密的。这意味着如果有人记录了加密的对话，然后获取了服务器的 RSA 私钥，他们就可以解密对话。即使对话是在很久以前记录的，而密钥是在未来某个时间获得的，这也适用
+					- tls1.3中不再支持RSA密钥交换算法
+			- DH(Diffie-Hellman)
+				- DH基于大整数分解问题（Discrete Logarithm Problem),DH协议允许通信双方在不安全的通信通道上协商一个共享的对称密钥，DH生成的密钥通常是长期有效的,它不是前向保密的
+				- 客户端和服务器首先各自创建一个公私钥对。然后，它们将公钥部分发送给对方。当每一方收到对方的公钥部分后，将其与自己的私钥结合，最终得到相同的值：预主密钥
+				- 原理可以想象成调配颜料的过程:
+					- 1. 爱丽丝和鲍勃先约定使用黄色作为基础颜色(公钥)
+					- 2. 爱丽丝秘密选择红色,鲍勃秘密选择蓝色(这是各自的私钥)
+					- 3. 爱丽丝将黄色+红色混合,把结果发给鲍勃(KeyExchange)
+					- 4. 鲍勃将黄色+蓝色混合,把结果发给爱丽丝(KeyExchange)
+					- 5. 爱丽丝将收到的(黄+蓝)再加入红色
+					- 6. 鲍勃将收到的(黄+红)再加入蓝色
+					- 7. 最终双方都得到了相同的紫色(黄+红+蓝),这就是共享密钥
+				- Diffie-Hellman 的安全性依赖于一个称为离散对数问题的特定数学难题的难度。如果能为一组参数解决离散对数问题，就可以提取私钥并破坏协议的安全性。一般来说，使用的数字越大，解决离散对数问题就越困难。因此，如果选择了较小的 DH 参数，则可能存在安全风险。TLS 1.3 取消了这一选择权,只保留了几种固定的DH参数,这些参数是经过广泛测试和验证的,安全性较高
+			- DHE(Diffie-Hellman Ephemeral)
+				- DHE是DH的改进版本,DHE生成的密钥是临时有效的,每次握手都会生成新的密钥,提供前向安全性
+			- ECDH(Elliptic Curve Diffie-Hellman)
+				- ECDH是基于椭圆曲线密码学的密钥交换协议，和DH原理基本相同,在相同的密钥强度下比DH更加高效。ECDH生成的密钥通常是长期有效的,因此安全性依赖于长期保持私密性
+			- ECDHE(Elliptic Curve Diffie-Hellman Ephemeral)
+				- ECDHE是ECDH的改进版本,ECDHE生成的密钥是临时有效的,每次握手都会生成新的密钥,提供前向安全性
+			- 关于静态密钥和临时密钥
+				- 服务端证书包含固定DH参数,客户端使用使用证书中的参数,双方计算共享密钥,每次会话都使用相同的参数,称为静态密钥
+				- 服务端生成新的DH参数,将参数发送给客户端,客户端生成自己的密钥对,双方交换公钥并计算共享密钥,每次会话都使用新的DH参数
+				- TLS1.3不再支持静态密钥交换算法,只支持临时密钥交换算法,包括ECDHE,有限DHE, 所有的密钥交换算法都提供前向安全性. 支持的身份验证算法为: RSA-PSS(最小密钥长度2048位),ECDSA,EdDSA
+		- ### 对称密钥加密
+			- 握手成功后，客户端使用对称加密算法加密,服务端解密
+			- 对称密码分为两种主要形式:
+				- 流密码(Stream Cipher)
+					- 工作原理:
+						- 使用固定大小的密钥生成任意长度的密钥流(伪随机数据流)
+						- 加密时将消息与密钥流按位异或
+						- 解密时将密文与密钥流按位异或
+					- 工作原理详解:
+						- 加密和解密过程:
+							- 加密: 明文 $ P $ 与密钥 $ K $ 进行异或操作,生成密文 $ C $ :
+								- $$ C = P \oplus K $$
+							- 解密: 密文 $ C $ 与密钥 $ K $ 再次异或,恢复明文 $ P $ :
+								- $$ C \oplus K = (P \oplus K) \oplus K = P \oplus (K \oplus K) = P \oplus 0 = P $$
+						- 异或操作的核心特性:
+							- 自反性: $ A \oplus A = 0 $
+								- 任何值与自身异或结果为0
+							- 与0的关系: $ A \oplus 0 = A $
+								- 任何值与0异或结果是其本身
+							- 可逆性: $ (A \oplus B) \oplus B = A $
+								- 异或操作可逆,两次异或同一个值会恢复原始值
+						- 举例说明:
+							- 明文 $ P = 1010 $
+							- 密钥 $ K = 1100 $
+							- 加密: $$ C = P \oplus K = 1010 \oplus 1100 = 0110 $$
+							- 解密: $$ P = C \oplus K = 0110 \oplus 1100 = 1010 $$
+					- 特点:
+						- 实现简单
+						- 软件中运行速度快
+						- 适合实时加密
+					- 代表算法:
+						- RC4
+						- ChaCha20
+				- 分组密码(Block Cipher)
+					- 工作原理:
+						- 只能加密固定大小的数据块
+						- 对于短于分组大小的消息需要填充
+						- 对于长于分组大小的消息需要分块处理
+					- CBC模式工作原理:
+						- 加密过程:
+							- 1. 将明文分成固定大小的块(如128位)
+							- 2. 生成随机的初始化向量(IV)
+							- 3. 对每个明文块:
+								- 将当前明文块与前一个密文块(或IV)进行异或
+								- 对异或结果进行加密,得到当前密文块
+							- 4. 将所有密文块连接形成完整密文
+						- 解密过程:
+							- 1. 将密文分成固定大小的块
+							- 2. 对每个密文块:
+								- 对当前密文块进行解密
+								- 将解密结果与前一个密文块(或IV)异或,恢复明文块
+							- 3. 将所有明文块连接形成完整明文
+						- 举例说明:
+							- 假设使用AES-128加密:
+								- 明文: `HELLO WORLD!1234` (16字节)
+								- 密钥: `0123456789ABCDEF` (16字节)
+								- IV: `FEDCBA9876543210` (16字节)
+							- 加密过程:
+								- 明文块与IV异或: `HELLO WORLD!1234 XOR FEDCBA9876543210 = 结果1`
+								- 对结果1进行AES加密得到密文块
+							- 解密过程:
+								- 对密文块AES解密得到结果1
+								- 结果1与IV异或: `结果1 XOR FEDCBA9876543210 = HELLO WORLD!1234`
+						- 特点:
+							- 需要初始化向量(IV)
+							- 每个明文块的加密依赖于前一个密文块
+							- 需要填充(Padding)确保明文长度是分组大小的整数倍
+							- 通过链式结构增强加密随机性和安全性
+					- 常用模式:
+						- CBC(Cipher Block Chaining)模式
+							- 每个明文块先与前一个密文块异或后再加密
+					- 代表算法:
+						- AES
+						- DES
+						- 3DES
+		- ### 散列函数
+			- 散列函数的特性
+				- 无法从散列值反推原文
+				- 难以找到两个不同的输入产生相同的散列值
+				- 固定长度输出
+			- 散列函数在TLS中主要用于:
+				- 数字签名生成和验证
+					- 签名时使用散列的原因是:
+						- 哈希值长度固定，处理更快
+						- 减少签名运算的数据量
+						- 适合任意长度的输入数据
+						- 保证数据完整性
+						- 克服了RSA等算法的长度限制
+					-
+					  ```
+					  type DigitalSigner struct {
+					  	privateKey *rsa.PrivateKey
+					  	publicKey  *rsa.PublicKey
+					  }
+					  
+					  // 签名数据
+					  func (ds *DigitalSigner) SignData(data []byte) ([]byte, error) {
+					  	// 1. 计算数据的哈希值
+					  	hashed := sha256.Sum256(data)
+					  	
+					  	// 2. 生成签名
+					  	signature, err := rsa.SignPKCS1v15(
+					  		rand.Reader,
+					  		ds.privateKey,
+					  		crypto.SHA256,
+					  		hashed[:],
+					  	)
+					  	if err != nil {
+					  		return nil, err
+					  	}
+					  	
+					  	return signature, nil
+					  }
+					  
+					  // 验证签名
+					  func (ds *DigitalSigner) VerifySignature(data, signature []byte) error {
+					  	// 1. 计算数据的哈希值
+					  	hashed := sha256.Sum256(data)
+					  	
+					  	// 2. 验证签名
+					  	return rsa.VerifyPKCS1v15(
+					  		ds.publicKey,
+					  		crypto.SHA256,
+					  		hashed[:],
+					  		signature,
+					  	)
+					  }
+					  ```
+				- 消息认证码(HMAC)生成
+					- 提供消息完整性和认证
+					- 配合时间戳和过期机制可以防止重放攻击
+					- MAC-then-Encrypt 和 Encrypt-then-MAC
+						- MAC-then-Encrypt(TLS1.2及以前):
+							- 先计算明文的MAC,再加密明文和MAC
+							- 存在安全隐患:
+								- 接收方需要先解密才能验证MAC
+								- 容易受到填充oracle攻击(如POODLE)
+								- MAC验证滞后,攻击者可在解密过程中攻击
+						- Encrypt-then-MAC(TLS1.3):
+							- 先加密明文,再计算密文的MAC
+							- 更安全的原因:
+								- 接收方先验证MAC,确保密文未被篡改
+								- MAC验证失败直接拒绝,无需解密
+								- 避免了填充oracle攻击
+						- 举例说明
+							- 假设明文为HELLO,密钥为KEY_ENC和KEY_MAC
+							- MAC-then-Encrypt流程:
+								- 1. 计算MAC: MAC(HELLO)得到MAC_HELLO
+								- 2. 拼接: HELLO || MAC_HELLO
+								- 3. 加密得到密文
+							- Encrypt-then-MAC流程:
+								- 1. 加密HELLO得到密文
+								- 2. 计算密文的MAC
+								- 3. 发送密文||MAC
+			- 伪随机数生成
+			- 密钥导出
+			- 常见的散列函数包括:
+				- MD5(已不安全,不推荐使用)
+				- SHA-1(已不安全,不推荐使用)
+				- SHA-2家族(SHA-256/384/512)
+				- SHA-3家族
+		- ### 密钥派生
+			- ### TLS 1.2的密钥派生机制
+				- 密钥交换
+					- 通过RSA或Diffie-Hellman等密钥交换算法生成预主密钥（Pre-Master Secret）
+				- 生成主密钥
+					- 使用预主密钥、客户端随机数和服务器随机数
+					- 通过PRF（基于HMAC-SHA256的伪随机函数）生成主密钥（Master Secret）
+				- 派生会话密钥
+				  		从主密钥中派生出用于加密和完整性检查的密钥块,包括:  
+					- 客户端写加密密钥（Client Write Encryption Key）
+					- 服务器写加密密钥（Server Write Encryption Key）
+					- 客户端写MAC密钥（Client Write MAC Key）
+					- 服务器写MAC密钥（Server Write MAC Key）
+					- 加密模式（如CBC）所需的IV（初始化向量）
+			- ### TLS 1.3的密钥派生机制
+			  ```
+			  (EC)DHE 密钥交换
+			  	↓
+			  Shared Secret
+			  	↓
+			  Early Secret (可选，用于 0-RTT)
+			  	↓
+			  Handshake Secret (握手密钥)
+			  	↓
+			  Master Secret (主密钥)
+			  ```
+			  握手阶段密钥  
+				- Client Handshake Traffic Secret
+				- Server Handshake Traffic Secret
+			- 应用数据密钥
+				- Client Application Traffic Secret
+				- Server Application Traffic Secret
+			- 特殊用途密钥
+				- Resumption Master Secret (会话恢复主密钥))
+					-
+					  ```
+					    Master Secret
+					        ↓
+					    HKDF-Expand-Label(
+					      secret: Master Secret,
+					      label: "res master",
+					      context: Transcript-Hash(Handshake Context),
+					      length: Hash.length
+					    )
+					        ↓
+					    Resumption Master Secret
+					  ```
+					- 用途:
+						- 生成 PSK (Pre-Shared Key),用于下一次连接
+						- 支持会话恢复
+						- 启用 0-RTT 数据传输
+				- Early Exporter Master Secret  (早期导出主密钥)
+					-
+					  ```
+					  Early Secret
+					      ↓
+					  HKDF-Expand-Label(
+					      secret: Early Secret,
+					      label: "e exp master",
+					      context: Transcript-Hash(Handshake Context),
+					      length: Hash.length
+					  )
+					      ↓
+					  Early Exporter Master Secret
+					  ```
+					- 用途:
+						- Early Exporter Master Secret 是保护 0-RTT 数据的工具
+						- 它在 0-RTT 传输过程中使用,提供额外的安全保证
+				- Exporter Master Secret (用于外部密钥导出)
+					-
+					  ```
+					  Master Secret
+					      ↓
+					  HKDF-Expand-Label(
+					      secret: Master Secret,
+					      label: "exp master",
+					      context: Transcript-Hash(Handshake Context),
+					      length: Hash.length
+					  )
+					      ↓
+					  Exporter Master Secret
+					  ```
+					- 用途
+						- 为外部协议提供密钥材料
+						- 支持协议绑定
+						- 派生额外的密钥
+		- ### TLS1.3中默认使用算法
+			- 密钥交换: X25519
+				- 是ECDHE的特定实现,专门使用Curve25519曲线,无需协商曲线
+				- 固定32字节密钥长度
+			- 对称加密: AES-256-GCM
+				- AES-256表示使用256位密钥的高级加密标准
+				- GCM(Galois/Counter Mode)是一种认证加密模式
+					- 提供机密性、完整性和真实性保护
+					- 支持并行处理,性能优秀
+					- 不需要额外的消息认证码(MAC)
+			- 散列函数: SHA-384
+				- SHA-384是SHA-2家族中的一员,提供384位(48字节)的散列值
+				- 基于SHA-512算法,使用不同的初始值和截断输出
+				- 提供较高的安全性,适用于数字签名和消息认证
+				- 在TLS1.3中用于:
+					- 生成会话密钥
+					- 验证握手消息的完整性
+					- 数字签名
+- ## 证书
+	- ### 证书包含哪些内容
+		- X.509 是密码学里公钥证书的格式标准,证书中主要包含以下信息:
+			- 版本号：证书采用的X.509标准版本
+			- 序列号：由CA分配的唯一标识符
+			- 签名算法：用于签发证书的算法(如RSA、ECDSA等)
+			- 颁发者信息：颁发证书的CA机构信息
+				- 国家(C, Country)
+				- 组织(O, Organization)
+				- 组织单位(OU, Organization Unit)
+				- 通用名称(CN, Common Name)
+			- 有效期：证书的生效时间和过期时间
+			- 主体信息：证书持有者的信息
+				- 国家(C)
+				- 省/州(ST, State)
+				- 地区(L, Locality)
+				- 组织(O)
+				- 组织单位(OU)
+				- 通用名称(CN)
+			- 公钥信息：
+				- 公钥算法
+				- 公钥长度
+				- 公钥值
+			- 扩展信息：
+				- 密钥用途
+				- 主体备用名称(SAN)
+				- CRL分发点
+				- 基本约束
+	- ### 证书验证原理
+		- #### 服务端申请证书
+			- 服务端管理员生成一对公钥和私钥,服务端将公钥和申请信息(域名,申请者信息)等发送给CA机构
+			- CA机构核实服务端拥有着的信息,如组织是否存在、企业是否合法、是否拥有域名的所有权等
+			- 核实无误后,CA机构使用自己的私钥对证书中的所有信息(版本号、序列号、签名算法、颁发者信息、有效期、主体信息、公钥信息、扩展信息等)进行签名
+		- #### 客户端验证证书
+			- 客户端在和服务端进行TLS握手时,服务端会将证书发送给客户端
+			- 客户端首先检查证书的有效期、域名是否匹配等基本信息
+			- 然后客户端会使用证书中的签名算法(在证书的签名算法字段中指定)和CA公钥来验证证书签名
+			- 验证过程:
+				- 1. 提取证书中除签名外的所有信息,使用相同的签名算法计算摘要
+				- 2. 使用CA公钥验证证书中的签名,得到原始摘要
+				- 3. 比较两个摘要是否一致,一致则说明证书确实是由该CA签发且未被篡改
+				- RSA签名验证
+					-
+					  ```
+					  CA签名时：
+					   计算摘要: h = SHA256(证书信息)
+					   用私钥加密: signature = h^d mod n  # d是私钥指数,n是模数(两个大素数的乘积)
+					  
+					  验证签名时：
+					   用公钥解密: h' = signature^e mod n  # n是模数,与私钥中的n相同
+					   计算摘要: h = SHA256(证书信息)
+					   比较 h 和 h' 是否相等
+					  
+					  --------------------------------------------------------
+					  
+					  证书信息摘要: 123
+					  CA签名:
+					   私钥d = 3
+					   n = 33
+					   signature = 123^3 mod 33 = 9
+					  
+					  验证:
+					   公钥e = 7
+					   n = 33
+					   9^7 mod 33 = 123 (得到原始摘要)
+					  
+					  比对:
+					   计算当前证书信息的摘要是否等于123
+					  ```
+			- #### 如果证书链中包含中间证书,则需要逐级验证直到根证书:
+				- 1. 首先验证服务器证书,使用中间证书的公钥验证服务器证书的签名
+				- 2. 然后验证中间证书,使用根证书的公钥验证中间证书的签名
+				- 3. 根证书是预先内置在系统/浏览器中的可信证书,不需要再验证
+				- 4. 只有整个证书链都验证通过,才能确认服务器证书的可信性
+			- 验证通过后,客户端才会信任该服务器证书,继续后续的TLS握手过程
+		- 简单概括: 权威机构使用自己的私钥将主体信息加密成证书,客户端使用权威机构的公钥验证,通过则说明证书可信
+		- #### 为什么需要中间证书?
+			- 安全性:
+				- 根证书是整个PKI体系的信任源,需要严格保护,通常离线存储
+				- 使用中间证书可以保护根证书私钥,即使中间证书私钥泄露,根证书仍然安全
+			- 灵活性:
+				- 可以为不同业务场景颁发不同的中间证书
+				- 中间证书出现问题时,可以单独吊销而不影响其他证书
+			- 效率:
+				- 根证书离线存储导致签发证书效率低
+				- 中间证书可以在线运行,提高证书签发效率
+			- 证书管理:
+				- 可以通过中间证书将证书层级化管理
+				- 便于证书的分类和权限控制
+	- ### 证书格式和后缀名
+		- TLS 证书的文件后缀名并不重要,TLS 证书可以以纯文本形式存储（这是最常见的形式，适用于 Linux、Apache、Unix 和其他服务器）,也可以以二进制形式存储（如 Java、Microsoft Server）,证书以纯文本形式保存为 Base64 编码,二进制文件无法用文本编辑器打开
+			- #### 常用编码
+				- PEM
+					- 这是最常用的证书存储格式。我们通常将 PEM 称为“文本格式”，它是以 Base64 编码的。
+					- PEM 是使用 ASCII 字母的 Base64 编码文件,PEM格式的文件使用Base64编码，并且通常以-----BEGIN ...-----和-----END ...-----包围起来，用来标识不同的部分。
+				- DER
+					- DER 格式是一种二进制证书格式。它不是文本，无法像文本一样打开阅读或复制。这是与 Base64 的主要区别。
+					- 所有证书类型和私钥都可以存储为 DER 格式,DER 格式用于 Java 平台。
+			- #### 常用后缀
+				- CRT和CER 通常用于存储证书
+				- KEY 通常用于存储私钥
+				- PEM 可以仅包含证书、私钥或两者都有
+			- #### 转换
+				- 使用openssl可以将der编码的证书转换为pem编码的证书:
+				  ```
+				   openssl x509 -inform der -in cert.der -out cert.pem
+				  ```
+				- 使用openssl可以将私钥(原始私钥格式)转换为pem编码的私钥:
+				  ```
+				   openssl rsa -in private.key -outform pem -out private.pem
+				  ```
+				- 使用openssl可以将pem编码的证书和私钥组合在同一个pem文件中:
+				  ```
+				   cat cert.pem private.pem > combined.pem
+				  ```
+	- ### 证书相关工具
+		- OpenSSL是一个开放源代码的软件库，它提供了用于安全网络通信的加密和解密功能，包括和TLS协议的实现。由C语言编写，广泛用于各种操作系统上，如Linux、Unix以及类Unix系统。OpenSSL可以用来创建安全连接、生成证书、实现加密通信等，使用openssl命令行工具可以执行生成证书等操作,也可以借助一些开源工具,可以简化证书生成过程,如使用shell脚本构建的 https://github.com/acmesh-official/acme.sh
+		- #### 使用`openssl s_client -connect www.example.com:443 -showcerts` 查看服务器证书
+			-
+			  ```
+			  # 连接到example.org服务器
+			  Connecting to 93.184.215.14
+			  CONNECTED(00000005)
+			  
+			  # 证书链验证过程
+			  # 验证根证书
+			  # 根证书信息: C(国家)=美国, O(组织)=DigiCert公司, OU(组织单位)=www.digicert.com, CN(通用名称)=DigiCert全球根证书G2
+			  depth=2 C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+			  # 验证通过,返回值为1表示验证成功
+			  verify return:1
+			  # 验证中间证书
+			  depth=1 C=US, O=DigiCert Inc, CN=DigiCert Global G2 TLS RSA SHA256 2020 CA1  
+			  verify return:1
+			  # 验证服务器证书
+			  depth=0 C=US, ST=California, L=Los Angeles, O=Internet Corporation for Assigned Names and Numbers, CN=www.example.org
+			  verify return:1
+			  
+			  # 证书链详细信息
+			  ---
+			  Certificate chain
+			  # 服务器证书信息
+			  0 s:C=US, ST=California, L=Los Angeles, O=Internet Corporation for Assigned Names and Numbers, CN=www.example.org
+			  i:C=US, O=DigiCert Inc, CN=DigiCert Global G2 TLS RSA SHA256 2020 CA1
+			  a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+			  v:NotBefore: Jan 30 00:00:00 2024 GMT; NotAfter: Mar  1 23:59:59 2025 GMT
+			  
+			  # 服务器证书内容
+			  -----BEGIN CERTIFICATE-----
+			  MIIHbjCCBlagAwIBAgIQB1vO8waJyK3fE+Ua9K/hhzANBgkqhkiG9w0BAQsFADBZ
+			  [... 证书内容已省略 ...]
+			  -----END CERTIFICATE-----
+			  
+			  # 中间证书信息
+			  1 s:C=US, O=DigiCert Inc, CN=DigiCert Global G2 TLS RSA SHA256 2020 CA1
+			  i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+			  a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+			  v:NotBefore: Mar 30 00:00:00 2021 GMT; NotAfter: Mar 29 23:59:59 2031 GMT
+			  
+			  # 中间证书内容
+			  -----BEGIN CERTIFICATE-----
+			  MIIEyDCCA7CgAwIBAgIQDPW9BitWAvR6uFAsI8zwZjANBgkqhkiG9w0BAQsFADBh
+			  [... 证书内容已省略 ...]
+			  -----END CERTIFICATE-----
+			  
+			  # 服务器证书摘要
+			  ---
+			  Server certificate
+			  subject=C=US, ST=California, L=Los Angeles, O=Internet Corporation for Assigned Names and Numbers, CN=www.example.org
+			  issuer=C=US, O=DigiCert Inc, CN=DigiCert Global G2 TLS RSA SHA256 2020 CA1
+			  
+			  # TLS连接信息:
+			  # - 未发送客户端证书CA名称列表
+			  # - 对等方使用的摘要算法: SHA256
+			  # - 对等方签名类型: RSA-PSS
+			  # - 服务器临时密钥: ECDH算法,使用prime256v1曲线,密钥长度256位
+			  ---
+			  No client certificate CA names sent
+			  Peer signing digest: SHA256
+			  Peer signature type: RSA-PSS
+			  Server Temp Key: ECDH, prime256v1, 256 bits
+			  
+			  # 握手统计
+			  ---
+			  SSL handshake has read 3821 bytes and written 765 bytes
+			  Verification: OK
+			  
+			  # TLS会话参数
+			  ---
+			  New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+			  Protocol: TLSv1.3
+			  Server public key is 2048 bit
+			  This TLS version forbids renegotiation.
+			  Compression: NONE
+			  Expansion: NONE
+			  No ALPN negotiated
+			  Early data was not sent
+			  Verify return code: 0 (ok)
+			  
+			  # 会话票据信息
+			  ---
+			  Post-Handshake New Session Ticket arrived:
+			  SSL-Session:
+			  Protocol  : TLSv1.3
+			  Cipher    : TLS_AES_256_GCM_SHA384
+			  Session-ID: 9348876C0D58ABFB6EB4E6C4B80695A6F32EC23C689F4260E76DD018734F7F01
+			  [... 会话票据详细信息已省略 ...]
+			  
+			  # 连接关闭
+			  read R BLOCK
+			  closed
+			  ```
+- ## 握手阶段
+	- ### TLS1.2 握手流程
+		-
+		  ```
+		       Client                                     Server
+		       |                                         |
+		       |        1. ClientHello                   |
+		       |---------------------------------------->|
+		       |                                         |
+		       |        2. ServerHello                   |
+		       |        3. Certificate*                  |
+		       |        4. ServerKeyExchange*            |
+		       |        5. CertificateRequest*           |
+		       |        6. ServerHelloDone               |
+		       |<----------------------------------------|
+		       |                                         |
+		       |        7. Certificate*                  |
+		       |        8. ClientKeyExchange             |
+		       |        9. CertificateVerify*            |
+		       |        10.[ChangeCipherSpec]            |
+		       |        11.Finished                      |
+		       |---------------------------------------->|
+		       |                                         |
+		       |        12.[ChangeCipherSpec]            |
+		       |        13.Finished                      |
+		       |<----------------------------------------|
+		       |                                         |
+		       |        Application Encrypted Data       |
+		       |<--------------------------------------->|
+		  ```
+			- []表示可选或者有条件的消息
+			- *表示可以发送0个或多个该类型的消息
+		- #### 流程解读:
+			- 1. ClientHello: 客户端向服务器发送客户端生成的随机数,可能的会话ID,支持的最高SSL版本,支持的加密套件列表,加密套件信息包括加密算法和密钥大小。
+			- 2. ServerHello: 服务器选择客户端和服务器都支持的最高SSL版本(例如，如果客户端支持 TLS 1.1 版本，而服务器支持 1.2 版本，则应选择 1.1 版本；不应选择 1.2 版本。),最佳加密套件,以及服务端生成的随机数,可能的会话ID,并将此信息发送给客户端。
+			- 3. Certificate(可选): 服务器向客户端发送证书或证书链。证书链通常以服务器的公钥证书开始,以证书颁发机构的根证书结束。此消息是可选的,根据选择的身份验证算法,可能需要证书。
+			- 4. CertificateRequest(可选): 如果服务器必须验证客户端身份,则向客户端发送证书请求。在互联网应用中这种情况很少见。
+			- 5. ServerKeyExchange(可选): 根据选择的密钥交换算法,服务器可能会向客户端发送服务器密钥交换消息。
+			- 6. ServerHelloDone: 服务器告诉客户端已完成初始协商消息。
+			- 7. Certificate(可选): 如果服务器请求客户端证书,客户端会发送其证书链,与服务器之前的操作类似。
+			- 8. ClientKeyExchange: 客户端生成用于对称加密的密钥信息,对于RSA,客户端从服务器的 SSL 证书中获取公钥加密此密钥信息(预主密钥)并发送给服务器。对于DH系列的加密套件,此消息包含客户端的DH相关参数。
+			- 9. CertificateVerify(可选): 当客户端提供证书时发送此消息。其目的是让服务器完成客户端身份验证过程。客户端使用加密哈希函数对信息进行数字签名,服务器用客户端公钥解密此信息来验证客户端身份。
+			- 10. ChangeCipherSpec: 客户端发送消息告诉服务器切换到加密模式,后续数据传输使用协商的对称加密算法和密钥进行加密。
+			- 11. Finished: 客户端告诉服务器已准备好开始安全数据通信。
+			- 12. ChangeCipherSpec: 服务端发送消息告诉客户端切换到加密模式,后续数据传输使用协商的对称加密算法和密钥进行加密。
+			- 13. Finished: 服务端告诉客户端已准备好开始安全数据通信。这标志着SSL握手的结束。
+			- 14. 加密数据传输: 客户端和服务器使用在ClientHello和ServerHello期间协商的对称加密算法和加密哈希函数,以及客户端在ClientKeyExchange期间发送给服务器的密钥进行通信。此时可以重新协商握手。
+			- 注意:
+				- ClientHello 会发送会话 ID或ticket。但对于新连接，会话 ID或ticket 为空。只有在尝试恢复之前的会话时，才会发送非空的会话 ID或ticket。这是为了支持会话恢复（Session Resumption）机制
+				- 在 RSA 握手中，预主密钥由客户端生成的随机数据组成。在 DH系列算法中，客户端和服务器使用商定的参数分别计算相同的预主密钥。
+				- ServerKeyExchange和ClientKeyExchange不同算法的区别
+				  | 算法类型  | ServerKeyExchange | ClientKeyExchange | 安全特性  | 使用场景  |
+				  |---|---|---|---|---|
+				  |  RSA  | 不需要 | 加密的预主密钥  | 不提供前向安全性  实现简单  计算开销较大 | 传统系统  简单部署场景  |
+				  |  DHE/ECDHE  | 必需： DH/ECDH参数  临时公钥  参数签名  | 客户端临时公钥 |   完美前向安全性  每次会话新密钥  最高安全级别  |  现代HTTPS  高安全需求场景  |
+				  |  DH/ECDH(静态)  |  条件发送： 证书含参数则不需要  证书不含则需要 | 客户端公钥  | 有限前向安全性  密钥复用 | 特定应用场景  性能优先场景  |
+		- #### 实际握手举例
+			- ![image.png](../md-image/image_1735626457741_0.png)
+			- ClientHello请求细节
+			- 向服务器发送了自己支持的加密套件
+			- 支持的椭圆曲线
+			- 支持的多种签名算法
+			-
+			  ```
+			  Frame 412: 373 bytes on wire (2984 bits), 373 bytes captured (2984 bits) on interface en0, id 0
+			  Ethernet II, Src: 26:67:51:4a:0e:17 (26:67:51:4a:0e:17), Dst: DongguanHuar_7c:22:fb (3c:c7:86:7c:22:fb)
+			  Internet Protocol Version 4, Src: 192.168.19.50, Dst: 153.3.238.110
+			  Transmission Control Protocol, Src Port: 52623, Dst Port: 443, Seq: 1, Ack: 1, Len: 319
+			  Transport Layer Security
+			      TLSv1.2 Record Layer: Handshake Protocol: Client Hello
+			          Content Type: Handshake (22)
+			          Version: TLS 1.2 (0x0303)
+			          Length: 314
+			          Handshake Protocol: Client Hello
+			              Handshake Type: Client Hello (1)
+			              Length: 310
+			              Version: TLS 1.2 (0x0303)
+			              Random: 080d07ab668fee92d5283979cfd677feb1458f13bd01c0d1a696eb12fba386c0
+			                  GMT Unix Time: Apr 13, 1974 15:54:19.000000000 CST
+			                  Random Bytes: 668fee92d5283979cfd677feb1458f13bd01c0d1a696eb12fba386c0
+			              Session ID Length: 32
+			              Session ID: 495c98be895dc023dba9cb5a8b6469a79bdc0d40ca160e5798bcd5784579943f
+			              Cipher Suites Length: 98
+			              Cipher Suites (49 suites)
+			                  Cipher Suite: TLS_CHACHA20_POLY1305_SHA256 (0x1303)
+			                  Cipher Suite: TLS_AES_256_GCM_SHA384 (0x1302)
+			                  /** 省略部分 **/
+			                  Cipher Suite: TLS_EMPTY_RENEGOTIATION_INFO_SCSV (0x00ff)
+			              Compression Methods Length: 1
+			              Compression Methods (1 method)
+			                  Compression Method: null (0)
+			              Extensions Length: 139
+			              Extension: supported_versions (len=5) TLS 1.3, TLS 1.2
+			                  Type: supported_versions (43)
+			                  Length: 5
+			                  Supported Versions length: 4
+			                  Supported Version: TLS 1.3 (0x0304)
+			                  Supported Version: TLS 1.2 (0x0303)
+			              Extension: key_share (len=38) x25519
+			                  Type: key_share (51)
+			                  Length: 38
+			                  Key Share extension
+			                      Client Key Share Length: 36
+			                      Key Share Entry: Group: x25519, Key Exchange length: 32
+			                          Group: x25519 (29)
+			                          Key Exchange Length: 32
+			                          Key Exchange: 6be2999b6a58d7a19f9c4464f2d482201d4a1bc6bd7bc17a09b5bc9bf804ec48
+			              Extension: server_name (len=18) name=www.baidu.com
+			                  Type: server_name (0)
+			                  Length: 18
+			                  Server Name Indication extension
+			                      Server Name list length: 16
+			                      Server Name Type: host_name (0)
+			                      Server Name length: 13
+			                      Server Name: www.baidu.com
+			              Extension: ec_point_formats (len=2)
+			                  Type: ec_point_formats (11)
+			                  Length: 2
+			                  EC point formats Length: 1
+			                  Elliptic curves point formats (1)
+			                      EC point format: uncompressed (0)
+			              Extension: supported_groups (len=10)
+			                  Type: supported_groups (10)
+			                  Length: 10
+			                  Supported Groups List Length: 8
+			                  Supported Groups (4 groups)
+			                      Supported Group: x25519 (0x001d)
+			                      Supported Group: secp256r1 (0x0017)
+			                      Supported Group: secp384r1 (0x0018)
+			                      Supported Group: secp521r1 (0x0019)
+			              Extension: signature_algorithms (len=24)
+			                  Type: signature_algorithms (13)
+			                  Length: 24
+			                  Signature Hash Algorithms Length: 22
+			                  Signature Hash Algorithms (11 algorithms)
+			                      Signature Algorithm: rsa_pss_rsae_sha512 (0x0806)
+			                          Signature Hash Algorithm Hash: Unknown (8)
+			                          Signature Hash Algorithm Signature: Unknown (6)
+			                       /** 省略部分 **/
+			                          Signature Hash Algorithm Hash: SHA1 (2)
+			                          Signature Hash Algorithm Signature: ECDSA (3)
+			              Extension: application_layer_protocol_negotiation (len=14)
+			                  Type: application_layer_protocol_negotiation (16)
+			                  Length: 14
+			                  ALPN Extension Length: 12
+			                  ALPN Protocol
+			                      ALPN string length: 2
+			                      ALPN Next Protocol: h2
+			                      ALPN string length: 8
+			                      ALPN Next Protocol: http/1.1
+			              [JA4: t13d4907h2_0d8feac7bc37_7395dae3b2f3]
+			              [JA4_r [truncated]: t13d4907h2_0004,0005,000a,0016,002f,0033,0035,0039,003c,003d,0041,0045,0067,006b,0081,0084,0088,009c,009d,009e,009f,00ba,00be,00c0,00c4,00ff,1301,1302,1303,c007,c008,c009,c00a,c011,c012,c013,c014,c023,c024,c027,c028,c02b]
+			              [JA3 Fullstring [truncated]: 771,4867-4866-4865-52393-52392-52394-49200-49196-49192-49188-49172-49162-159-107-57-65413-196-136-129-157-61-53-192-132-49199-49195-49191-49187-49171-49161-158-103-51-190-69-156-60-47-186-65-49169-49159-5-4-4917]
+			              [JA3: 375c6162a492dfbf2795909110ce8424]
+			  
+			  ```
+			- ServerHello请求细节
+			- 服务器选用的加密套件为TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+				- 使用 ECDHE 进行密钥交换
+					- 因为使用ECDHE进行密钥交换,在tls1.2中会有专门的ServerKeyExchange 和 ClientKeyExchange阶段
+				- RSA 用于认证
+				- AES-128-GCM 用于加密
+				- SHA256 用于哈希
+			-
+			  ```
+			  Frame 416: 1334 bytes on wire (10672 bits), 1334 bytes captured (10672 bits) on interface en0, id 0
+			  Ethernet II, Src: DongguanHuar_7c:22:fb (3c:c7:86:7c:22:fb), Dst: 26:67:51:4a:0e:17 (26:67:51:4a:0e:17)
+			  Internet Protocol Version 4, Src: 153.3.238.110, Dst: 192.168.19.50
+			  Transmission Control Protocol, Src Port: 443, Dst Port: 52623, Seq: 1, Ack: 320, Len: 1280
+			  Transport Layer Security
+			      TLSv1.2 Record Layer: Handshake Protocol: Server Hello
+			          Content Type: Handshake (22)
+			          Version: TLS 1.2 (0x0303)
+			          Length: 102
+			          Handshake Protocol: Server Hello
+			              Handshake Type: Server Hello (2)
+			              Length: 98
+			              Version: TLS 1.2 (0x0303)
+			              Random: 67738e87efe82702b2befa953b7447d0378458bfcedc3b50f3167ab4d29b8196
+			                  GMT Unix Time: Dec 31, 2024 14:26:15.000000000 CST
+			                  Random Bytes: efe82702b2befa953b7447d0378458bfcedc3b50f3167ab4d29b8196
+			              Session ID Length: 32
+			              Session ID: 754d94678cd10b5f302a8909fa3faf0619f3ee1a4cd9b6ea5a6c468ec2204558
+			              Cipher Suite: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 (0xc02f)
+			              Compression Method: null (0)
+			              Extensions Length: 26
+			              Extension: renegotiation_info (len=1)
+			                  Type: renegotiation_info (65281)
+			                  Length: 1
+			                  Renegotiation Info extension
+			                      Renegotiation info extension length: 0
+			              Extension: application_layer_protocol_negotiation (len=11)
+			                  Type: application_layer_protocol_negotiation (16)
+			                  Length: 11
+			                  ALPN Extension Length: 9
+			                  ALPN Protocol
+			                      ALPN string length: 8
+			                      ALPN Next Protocol: http/1.1
+			              Extension: ec_point_formats (len=2)
+			                  Type: ec_point_formats (11)
+			                  Length: 2
+			                  EC point formats Length: 1
+			                  Elliptic curves point formats (1)
+			                      EC point format: uncompressed (0)
+			              [JA3S Fullstring: 771,49199,65281-16-11]
+			              [JA3S: 2de81c22ea32a57162df5cb08d4a2795]
+			      TLS segment data (1173 bytes)
+			  
+			  ```
+	- ### TLS1.3握手流程
+		-
+		  ```
+		         Client                                           Server
+		  
+		        Key  ^ ClientHello
+		        Exch | + key_share*
+		             | + signature_algorithms*
+		             | + psk_key_exchange_modes*
+		             v + pre_shared_key*       -------->
+		                                                          ServerHello  ^ Key
+		                                                         + key_share*  | Exch
+		                                                    + pre_shared_key*  v
+		                                                {EncryptedExtensions}  ^  Server
+		                                                {CertificateRequest*}  v  Params
+		                                                       {Certificate*}  ^
+		                                                 {CertificateVerify*}  | Auth
+		                                                           {Finished}  v
+		                                       <--------  [Application Data*]
+		             ^ {Certificate*}
+		        Auth | {CertificateVerify*}
+		             v {Finished}              -------->
+		               [Application Data]      <------->  [Application Data]
+		  
+		                +  表示在前面提到的消息中发送的重要扩展。
+		                *  表示可选的或依情况而定的消息/扩展,不是总是会发送。
+		                {} 表示使用从[发送方]_handshake_traffic_secret派生的密钥保护的消息。
+		                [] 表示使用从[发送方]_application_traffic_secret_N派生的密钥保护的消息。
+		  ```
+		- 流程解读:
+			- 1. ClientHello: 客户端发送支持的加密套件列表、key_share扩展(包含客户端的ECDH公钥)等信息
+			- 2. ServerHello: 服务器选择加密套件,并在key_share扩展中发送自己的ECDH公钥,如果服务端不支持客户端的加密算法,则发送HelloRetryRequest通知
+				- 在TLS 1.3中，`keyShare`是客户端和服务器在密钥交换过程中发送的临时公钥（通常是椭圆曲线公钥或Diffie-Hellman公钥）。这个公钥用于生成共享密钥（Pre-Master Secret），但它本身并不使用私钥进行签名。这是因为`keyShare`的目的是为了密钥交换，而不是身份验证。身份验证是通过其他机制（如`certificateVerify`）来完成的。
+			- 3. EncryptedExtensions(可选): 服务器发送加密的扩展数据
+			- 4. CertificateRequest(可选): 如果需要客户端认证,服务器发送证书请求
+			- 5. Certificate(可选): 服务器发送证书链
+			- 6. CertificateVerify(可选): 服务器使用私钥对之前的握手消息进行签名
+				- CertificateVerify消息的作用是证明发送方持有证书中公钥对应的私钥,具体实现如下:
+					- 1. 握手消息哈希计算
+						- 记录从ClientHello到CertificateVerify之前的所有握手消息
+						- 计算这些消息的哈希值(通常使用SHA-256等),称为握手上下文哈希
+					- 2. 签名内容构造
+						- 签名内容格式为: "TLS 1.3, certificate verify" + 0x00 + 握手上下文哈希
+						- 固定字符串用于区分签名用途
+					- 3. 私钥签名
+						- 使用私钥对构造的内容进行签名(RSA-PSS/ECDSA等)
+						- 将签名放入CertificateVerify消息中发送
+					- 4. 接收方验证
+						- 重新计算握手消息哈希值
+						- 使用发送方证书公钥验证签名
+						- 验证签名内容是否匹配预期格式
+					- 5. 安全保证
+						- 只有持有私钥才能生成有效签名
+						- 签名包含所有握手消息哈希,防止篡改
+						- 确保了不可抵赖性和完整性
+			- 7. Finished: 服务器发送验证数据,确认握手完成
+				- Finished消息的作用和实现
+					- 作用:验证握手过程的完整性,确保消息未被篡改
+					- 基于HMAC(Hash-based Message Authentication Code)实现
+					- HMAC的输入包括:
+						- 握手上下文哈希:从ClientHello到Finished之前所有消息的哈希值
+						- 固定字符串:
+							- 客户端使用"client finished"
+							- 服务器使用"server finished"
+					- HMAC密钥:
+						- 从主密钥(Master Secret)通过HKDF派生
+						- 分别生成客户端和服务器的finished密钥
+					- HMAC计算:
+						-
+						  ```
+						  HMAC_Value = HMAC(
+						      finished_key,
+						      "client finished" + Handshake Context Hash  // 客户端
+						      OR
+						      "server finished" + Handshake Context Hash  // 服务器
+						  )
+						  ```
+					- 验证流程:
+						- 1. 接收方重新计算握手消息哈希值
+						- 2. 使用finished密钥验证HMAC
+						- 3. 比较计算值与接收值是否一致
+						- 4. 不一致则终止连接
+					- 安全保证:
+						- 只有持有正确密钥才能生成/验证HMAC
+						- 任何消息篡改都会导致验证失败
+						- 有效防止中间人攻击
+			- 8. Certificate(可选): 如果服务器请求了客户端证书,客户端发送证书
+			- 9. CertificateVerify(可选): 如果发送了客户端证书,客户端对握手消息签名
+			- 10. Finished: 客户端发送验证数据,确认握手完成
+			- 上图使用wireshark对`curl https://www.example.com` 握手过程进行抓包
+		- 实际握手举例:
+			- ![image.png](../md-image/image_1735615924965_0.png)
+			- 上图使用wireshark对`curl https://www.example.com` 握手过程进行抓包
+			- 服务器返回Hello Retry Request 的原因是服务端未接受客户端第一次发送的加密算法,对比两次Client Hello 请求
+				-
+				  ```
+				  # 第一次
+				  Extension: key_share (len=38) x25519
+				    Type: key_share (51)
+				    Length: 38
+				    Key Share extension
+				    Client Key Share Length: 36
+				    Key Share Entry: Group: x25519, Key Exchange length: 32
+				    Group: x25519 (29)
+				    Key Exchange Length: 32
+				    Key Exchange: 6fc363b9fc781bc9fec7b366a3fe99e88025fe87d16bc1acefee7098458c3101
+				    
+				  # HelloRetry Request  
+				    Extension: key_share (len=2) secp256r1
+				    Type: key_share (51)
+				    Length: 2
+				    Key Share extension
+				    Selected Group: secp256r1 (23)
+				  
+				  # 第二次
+				  Extension: key_share (len=71) secp256r1
+				    Type: key_share (51)
+				    Length: 71
+				    Key Share extension
+				    Client Key Share Length: 69
+				    Key Share Entry: Group: secp256r1, Key Exchange length: 65
+				    Group: secp256r1 (23)
+				    Key Exchange Length: 65
+				    Key Exchange: 040f6a84376a715cf75e734e20b21062f72edd9034ac3d82456db978542d41a10f2e1fb991fdf2f293a6c450c5f3531e6fc4467422c6f4d68b48e685a1ae10322f	
+				  ```
+			- 第二次ClientHello请求细节
+				- 向服务器发送了自己支持的加密套件
+					- 1. TLS_AES_256_GCM_SHA384
+						2. TLS_CHACHA20_POLY1305_SHA256
+						3. TLS_AES_128_GCM_SHA256
+
+				- 支持的椭圆曲线
+				- 支持的多种签名算法
+				- 在`Extension: key_share`中设置使用secp256r1椭圆曲线进行密钥交换,并且发送自己的ECDH公钥值
+				-
+				  ```
+				  Frame 26024: 354 bytes on wire (2832 bits), 354 bytes captured (2832 bits) on interface en0, id 0
+				  Ethernet II, Src: 26:67:51:4a:0e:17 (26:67:51:4a:0e:17), Dst: DongguanHuar_7c:22:fb (3c:c7:86:7c:22:fb)
+				  Internet Protocol Version 4, Src: 192.168.19.50, Dst: 93.184.215.14
+				  Transmission Control Protocol, Src Port: 60820, Dst Port: 443, Seq: 250, Ack: 100, Len: 288
+				  Transport Layer Security
+				      TLSv1.3 Record Layer: Change Cipher Spec Protocol: Change Cipher Spec
+				          Content Type: Change Cipher Spec (20)
+				          Version: TLS 1.2 (0x0303)
+				          Length: 1
+				          Change Cipher Spec Message
+				      TLSv1.3 Record Layer: Handshake Protocol: Client Hello
+				          Content Type: Handshake (22)
+				          Version: TLS 1.2 (0x0303)
+				          Length: 277
+				          Handshake Protocol: Client Hello
+				              Handshake Type: Client Hello (1)
+				              Length: 273
+				              Version: TLS 1.2 (0x0303)
+				              Random: 9a9b927033f057ee12c42a3641d96cfbff2d7ca419a52e1786e3d0d21a2cbba0
+				              Session ID Length: 32
+				              Session ID: 8b6f8d83cd756d328a9cc6ae04909084a424d15c5635ac23cc6f65d3e2cba63e
+				              Cipher Suites Length: 6
+				              Cipher Suites (3 suites)
+				                  Cipher Suite: TLS_AES_256_GCM_SHA384 (0x1302)
+				                  Cipher Suite: TLS_CHACHA20_POLY1305_SHA256 (0x1303)
+				                  Cipher Suite: TLS_AES_128_GCM_SHA256 (0x1301)
+				              Compression Methods Length: 1
+				              Compression Methods (1 method)
+				                  Compression Method: null (0)
+				              Extensions Length: 194
+				              Extension: server_name (len=16) name=example.com
+				                  Type: server_name (0)
+				                  Length: 16
+				                  Server Name Indication extension
+				                      Server Name list length: 14
+				                      Server Name Type: host_name (0)
+				                      Server Name length: 11
+				                      Server Name: example.com
+				              Extension: ec_point_formats (len=4)
+				                  Type: ec_point_formats (11)
+				                  Length: 4
+				                  EC point formats Length: 3
+				                  Elliptic curves point formats (3)
+				                      EC point format: uncompressed (0)
+				                      EC point format: ansiX962_compressed_prime (1)
+				                      EC point format: ansiX962_compressed_char2 (2)
+				              Extension: supported_groups (len=22)
+				                  Type: supported_groups (10)
+				                  Length: 22
+				                  Supported Groups List Length: 20
+				                  Supported Groups (10 groups)
+				                      Supported Group: x25519 (0x001d)
+				                      Supported Group: secp256r1 (0x0017)
+				                      Supported Group: x448 (0x001e)
+				                      Supported Group: secp521r1 (0x0019)
+				                      Supported Group: secp384r1 (0x0018)
+				               		/*省略部分*/
+				              Extension: session_ticket (len=0)
+				                  Type: session_ticket (35)
+				                  Length: 0
+				                  Session Ticket: <MISSING>
+				              Extension: encrypt_then_mac (len=0)
+				                  Type: encrypt_then_mac (22)
+				                  Length: 0
+				              Extension: extended_master_secret (len=0)
+				                  Type: extended_master_secret (23)
+				                  Length: 0
+				              Extension: signature_algorithms (len=36)
+				                  Type: signature_algorithms (13)
+				                  Length: 36
+				                  Signature Hash Algorithms Length: 34
+				                  Signature Hash Algorithms (17 algorithms)
+				                      Signature Algorithm: ecdsa_secp256r1_sha256 (0x0403)
+				                          Signature Hash Algorithm Hash: SHA256 (4)
+				                          Signature Hash Algorithm Signature: ECDSA (3)
+				             			/**省略部分 **/
+				                      Signature Algorithm: rsa_pkcs1_sha512 (0x0601)
+				                          Signature Hash Algorithm Hash: SHA512 (6)
+				                          Signature Hash Algorithm Signature: RSA (1)
+				              Extension: supported_versions (len=3) TLS 1.3
+				                  Type: supported_versions (43)
+				                  Length: 3
+				                  Supported Versions length: 2
+				                  Supported Version: TLS 1.3 (0x0304)
+				              Extension: psk_key_exchange_modes (len=2)
+				                  Type: psk_key_exchange_modes (45)
+				                  Length: 2
+				                  PSK Key Exchange Modes Length: 1
+				                  PSK Key Exchange Mode: PSK with (EC)DHE key establishment (psk_dhe_ke) (1)
+				              Extension: key_share (len=71) secp256r1
+				                  Type: key_share (51)
+				                  Length: 71
+				                  Key Share extension
+				                      Client Key Share Length: 69
+				                      Key Share Entry: Group: secp256r1, Key Exchange length: 65
+				                          Group: secp256r1 (23)
+				                          Key Exchange Length: 65
+				                          Key Exchange: 040f6a84376a715cf75e734e20b21062f72edd9034ac3d82456db978542d41a10f2e1fb991fdf2f293a6c450c5f3531e6fc4467422c6f4d68b48e685a1ae10322f
+				              [JA4: t13d031000_55b375c5d22e_3eb3b556ea2c]
+				              [JA4_r: t13d031000_1301,1302,1303_000a,000b,000d,0016,0017,0023,002b,002d,0033_0403,0503,0603,0807,0808,081a,081b,081c,0809,080a,080b,0804,0805,0806,0401,0501,0601]
+				              [JA3 Fullstring: 771,4866-4867-4865,0-11-10-35-22-23-13-43-45-51,29-23-30-25-24-256-257-258-259-260,0-1-2]
+				              [JA3: c3eddff4f56c6811c9b3be93e9b13273]
+				  
+				  ```
+			- ServerHello请求细节
+				- 使用的加密套件为TLS_AES_256_GCM_SHA384
+				- 在`Extension: key_share`中设置使用secp256r1椭圆曲线进行密钥交换,并且发送自己的ECDH公钥值
+				-
+				  ```
+				  Transport Layer Security
+				      TLSv1.3 Record Layer: Handshake Protocol: Server Hello
+				          Content Type: Handshake (22)
+				          Version: TLS 1.2 (0x0303)
+				          Length: 155
+				          Handshake Protocol: Server Hello
+				              Handshake Type: Server Hello (2)
+				              Length: 151
+				              Version: TLS 1.2 (0x0303)
+				              Random: 8e38c96f0707cd108a8f0b39fb72f3cd64287a22ee95f13ec5de8642195914b7
+				              Session ID Length: 32
+				              Session ID: 3015c3341bcadcc0f9010249980594d3674d086b11f333cd8d001da5156bf2a0
+				              Cipher Suite: TLS_AES_256_GCM_SHA384 (0x1302)
+				              Compression Method: null (0)
+				              Extensions Length: 79
+				              Extension: supported_versions (len=2) TLS 1.3
+				                  Type: supported_versions (43)
+				                  Length: 2
+				                  Supported Version: TLS 1.3 (0x0304)
+				              Extension: key_share (len=69) secp256r1
+				                  Type: key_share (51)
+				                  Length: 69
+				                  Key Share extension
+				                      Key Share Entry: Group: secp256r1, Key Exchange length: 65
+				                          Group: secp256r1 (23)
+				                          Key Exchange Length: 65
+				                          Key Exchange: 0491cc138fd8dc8b88f247177607a1be67b32be79ea55fe2ebeaa731bd6adcba980edef70c56ba0ea85161dccd28d853a6f5b31035a74b8bec6d9f3feeefe94faa
+				              [JA3S Fullstring: 771,4866,43-51]
+				              [JA3S: 15af977ce25de452b96affa2addb1036]
+				      TLSv1.3 Record Layer: Application Data Protocol: Hypertext Transfer Protocol
+				          Opaque Type: Application Data (23)
+				          Version: TLS 1.2 (0x0303)
+				          Length: 32
+				          Encrypted Application Data: 2839ea62c00bb9cf01c106d1e8ae90f8d016b630d75e1e78d37145e0dc2f4bc7
+				          [Application Data Protocol: Hypertext Transfer Protocol]
+				      TLS segment data (1071 bytes)
+				  
+				  ```
+- ## 会话复用
+	- ### 目的
+		- 减少握手开销：完整的 TLS 握手需要多次往返和复杂的加密运算
+		- 提高性能：重用之前协商的密钥材料，加快连接建立速度
+		- 降低服务器负载：减少CPU密集型的加密操作
+	- ### 三种方式
+		- Session ID(TLS1.2):
+			- 在首次完整 TLS 握手时，服务器生成一个唯一的 Session ID 并与会话相关的密钥材料（如主密钥、加密套件等）一起存储在服务器端；当客户端再次连接时，通过在 ClientHello 消息中携带之前获得的 Session ID，服务器检查并找到对应的会话信息后，双方就可以直接重用之前协商的密钥材料，从而跳过证书验证和密k钥交换等步骤，大大减少了握手往返次数和计算开销。
+		- Session Ticket(TLS1.2):
+			- 服务器不再存储会话状态，而是在首次握手完成时，将会话信息（包括主密钥、加密套件等）用票据加密密钥（Ticket Encryption Key）加密后，以票据（Ticket）的形式发送给客户端保存；当客户端再次连接时，将保存的票据在 ClientHello 中发回服务器，服务器使用相同的票据加密密钥解密该票据以恢复会话状态，从而实现无状态的会话复用，这种机制特别适合需要横向扩展的大规模部署场景
+		- PSK(TLS1.3):
+			- 在 TLS 1.3 中，ID和Ticket的方式已经被弃用,使用PSK方式
+			- PSK（Pre-Shared Key）会话恢复机制的工作原理是：当首次完整 TLS 握手完成时，服务器会生成一个包含会话参数的加密票据（ticket）发送给客户端保存，在后续连接中，客户端可以在 ClientHello 消息中携带这个 PSK 标识符，如果服务器验证有效，双方就可以使用这个预共享密钥（配合新的 (EC)DHE 密钥交换）快速建立安全连接，从而避免了完整的握手过程，同时保证了前向安全性。
+			- 优点:
+				- 安全性更高,强制与 (EC)DHE 结合使用,提供完美前向保密（PFS）
+				- 握手过程更简化,支持 0-RTT 数据传输
+				- 扩展性更好,无需跨服务器同步状态,适合分布式系统部署,更容易实现负载均衡
+		- TLS1.2如何确定使用的哪种方式
+			- 在TLS1.2中 通过观察 TLS 握手过程中的数据包特征可以确定使用的复用机制：如果看到 ClientHello 中包含非空的 Session ID 且 ServerHello 返回相同的 Session ID 进行复用，则是使用 Session ID 机制；如果看到 ClientHello 中包含 session_ticket 扩展并携带之前的票据，且在握手过程中出现 NewSessionTicket 消息，则是使用 Session Ticket 机制；此外，虽然客户端可能同时支持两种机制，但最终使用哪种取决于服务器的选择和响应。
+			-
+	- ### tls1.2 流程
+		-
+		  ```
+		        Client                                                Server
+		  
+		        ClientHello                   -------->
+		                                                         ServerHello
+		                                                  [ChangeCipherSpec]
+		                                      <--------             Finished
+		        [ChangeCipherSpec]
+		        Finished                      -------->
+		        Application Data              <------->     Application Data
+		  
+		  
+		  ```
+		-
+			- 1. 客户端发送 ClientHello 消息,包含要恢复的会话的 Session ID
+			- 2. 服务器检查其会话缓存是否存在匹配的 Session ID
+				- 如果找到匹配且服务器愿意重用该会话:
+					- 服务器发送 ServerHello,使用相同的 Session ID
+					- 双方直接发送 ChangeCipherSpec 消息
+					- 双方交换 Finished 消息
+					- 握手完成后可以开始交换应用层数据
+				- 如果未找到匹配:
+					- 服务器生成新的 Session ID
+					- 执行完整的 TLS 握手流程
+- ### tls1.3流程
+	- 1 RTT
+		-
+		  ```
+		        ClientHello
+		            + key_share*
+		            + pre_shared_key          -------->
+		                                                            ServerHello
+		                                                       + pre_shared_key
+		                                                           + key_share*
+		                                                  {EncryptedExtensions}
+		                                                             {Finished}
+		                                      <--------     [Application Data*]
+		            {Finished}                -------->
+		            [Application Data]        <------->      [Application Data
+		            
+		  			  +  表示在前面提到的消息中发送的重要扩展。
+		                *  表示可选的或依情况而定的消息/扩展,不是总是会发送。
+		                {} 表示使用从[发送方]_handshake_traffic_secret派生的密钥保护的消息。
+		                [] 表示使用从[发送方]_application_traffic_secret_N派生的密钥保护的消息。
+		  
+		  ```
+			- 1. 客户端发送 ClientHello 消息,包含:
+				- pre_shared_key 扩展,包含之前获得的 PSK 标识符
+				- key_share 扩展,用于 (EC)DHE 密钥交换
+			- 2. 服务器响应:
+				- 验证 PSK 有效性
+				- 发送 ServerHello,包含选中的 PSK 和 key_share
+				- 发送 EncryptedExtensions
+				- 发送 Finished 消息
+			- 3. 客户端发送 Finished 消息
+			- 4. 握手完成,双方可以开始交换加密的应用数据
+	- 0 RTT
+		-
+		  ```
+		           Client                                               Server
+		  
+		           ClientHello
+		           + early_data
+		           + key_share*
+		           + psk_key_exchange_modes
+		           + pre_shared_key
+		           (Application Data*)     -------->
+		                                                           ServerHello
+		                                                      + pre_shared_key
+		                                                          + key_share*
+		                                                 {EncryptedExtensions}
+		                                                         + early_data*
+		                                                            {Finished}
+		                                   <--------       [Application Data*]
+		           (EndOfEarlyData)
+		           {Finished}              -------->
+		           [Application Data]      <------->        [Application Data]
+		  
+		        + 表示在之前提到的消息中发送的值得注意的扩展
+		        * 表示可选的或情况相关的消息/扩展，不是每次都会发送
+		        () 表示使用从 client_early_traffic_secret 派生的密钥保护的消息
+		        {} 表示使用从 [发送方]_handshake_traffic_secret 派生的密钥保护的消息
+		        [] 表示使用从 [发送方]_application_traffic_secret_N 派生的密钥保护的消息
+		  ```
+			- 1. 客户端发送 ClientHello 消息,包含:
+				- early_data 扩展,表明要发送 0-RTT 数据
+					- early_data代表在TLS握手完成之前发送的数据
+				- key_share 扩展,用于密钥交换
+				- pre_shared_key 扩展,包含之前会话的 PSK
+				- psk_key_exchange_modes 扩展,指定 PSK 密钥交换模式
+				- 可以立即发送加密的应用数据(0-RTT 数据)
+			- 2. 服务器响应:
+				- 验证 PSK 有效性
+				- 发送 ServerHello,包含:
+					- pre_shared_key 扩展,确认使用的 PSK
+					- key_share 扩展,用于密钥交换
+				- 发送 EncryptedExtensions,包含:
+					- early_data 扩展,表明接受 0-RTT 数据
+				- 发送 Finished 消息
+				- 可以开始发送加密的应用数据
+			- 3. 客户端:
+				- 发送 EndOfEarlyData 消息,表明 0-RTT 数据发送完成
+				- 发送 Finished 消息
+			- 4. 握手完成,双方可以继续交换加密的应用数据
+			- 注意事项:
+				- 0-RTT 数据可能被重放,需要应用层防重放机制
+				- 服务器可以拒绝 0-RTT 数据,此时需要完整 1-RTT 握手
+				- 0-RTT 仅支持部分加密套件和应用数据

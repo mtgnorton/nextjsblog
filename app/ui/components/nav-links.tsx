@@ -9,10 +9,9 @@ import clsx from 'clsx';
 const links = [
   { name: 'Home', href: '/home'},
   {
-    name: 'All',
+    name: 'Blog',
     href: '/all',
   },
-  { name: 'Tags', href: '/tags' },
 ];
 
 export default function NavLinks() {
