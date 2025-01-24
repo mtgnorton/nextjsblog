@@ -1,9 +1,6 @@
 'use client';
 
-import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
-import clsx from 'clsx';
 import Link from 'next/link';
-import { generatePagination } from '@/app/ui/lib/utils';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 export default function Pagination({ totalPages }: { totalPages: number }) {
@@ -17,7 +14,6 @@ export default function Pagination({ totalPages }: { totalPages: number }) {
     return `${pathname}?${params.toString()}`;
   };
 
-  const allPages = generatePagination(currentPage, totalPages);
   return (
     <div className="flex items-center justify-center gap-4 text-sm">
       {currentPage <= 1 ? (
