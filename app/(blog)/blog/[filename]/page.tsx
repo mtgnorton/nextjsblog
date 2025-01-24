@@ -7,15 +7,10 @@ export const metadata: Metadata = {
   title: 'Blog',
 };
 
-export default async function Page({
-    params,
-  }: {
-    params: { filename: string }
-  }) {
+export default async function Page(props: { params: Promise<{ filename: string }> }) {
+    const params = await props.params
     const filename = params.filename
-    console.log(filename)
     const decodefilename = decodeURIComponent(filename)
-    console.log(decodefilename)
     const { default: Post } = await import(`@/md/${decodefilename}.mdx`)
     const title = decodefilename.replace(/^\d{4}-\d{2}-\d{2}-/, '')
 
