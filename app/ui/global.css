@@ -47,8 +47,8 @@ input[type='number']::-webkit-outer-spin-button {
   --heading: 35, 35, 51;
   --primary: 35, 35, 51;
   --link: 35, 35, 51;
-  --underline: 160, 0, 160;
-  --hover: 160, 0, 160;
+  --underline: 245, 108, 108;
+  --hover: 245, 108, 108;
   background: rgba(var(--background));
 }
 
