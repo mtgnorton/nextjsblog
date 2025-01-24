@@ -2,6 +2,7 @@ import '@/app/ui/global.css';
 import { inter } from '@/app/ui/font';
 import { Metadata } from 'next';
 import { ThemeProvider } from '@/app/provider/theme';
+import '@/app/(blog)/blog/atom-one-dark.css';
 
 export const metadata: Metadata = {
   title: {
@@ -20,6 +21,7 @@ export default function RootLayout({
   
   return (
     <html lang="en" >
+     
       <body className={`${inter.className} antialiased`} >
         <ThemeProvider>
           {children}
