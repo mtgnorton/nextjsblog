@@ -1,0 +1,341 @@
+  
+- ### 安装准备
+	- 查看是否启用分区交换
+		- swapon --show
+		- 要禁用交换分区（swap），可以使用命令 `sudo swapoff -a` 暂时关闭交换分区功能。 要使此更改在重启后仍然生效，请确保在系统的配置文件（如 `/etc/fstab` 或 `systemd.swap`）中禁用交换功能， 具体取决于你的系统配置方式。
+	- 查看是否开启防火墙ufw 或 firewalld
+		- ufw status
+			- 如果输出显示 Status: active，则表示 UFW 已启用。如果显示 Status: inactive，则表示 UFW 未启用。
+		- systemctl status firewalld
+			- 如果输出中包含 active (running)，则表示 firewalld 已启用。如果显示 inactive (dead) 或 not-found，则表示 firewalld 未启用。
+	- 查看是否启用了ipv4转发
+		  ```shell
+		  sysctl net.ipv4.ip_forward
+		  ```
+		- 如果未启动
+		-
+		  ```shell
+		  # 设置所需的 sysctl 参数，参数在重新启动后保持不变
+		  cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+		  net.ipv4.ip_forward = 1
+		  EOF
+		  
+		  # 应用 sysctl 参数
+		  sudo sysctl --system
+		  ```
+- ### 安装
+	- ### 安装运行时
+		- 全部节点安装容器运行时 containerd
+			  ```
+			  # Add Docker's official GPG key:
+			   apt-get update  # 更新软件包列表，获取最新包信息。
+			   apt-get install ca-certificates curl #安装证书和 curl 工具。
+			   install -m 0755 -d /etc/apt/keyrings #创建目录用于存放 APT 密钥
+			   curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc #下载 Docker GPG 密钥到指定目录。
+			   chmod a+r /etc/apt/keyrings/docker.asc # 设置密钥文件为可读权限。
+			  
+			  # 添加 Docker 软件源到系统列表。
+			  echo \
+			    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+			    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+			    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+			  apt-get update 
+			  
+			  apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+			  
+			  # 安装 Docker 的核心组件和插件，包括：
+			  # docker-ce: Docker 社区版引擎，用于运行容器。
+			  # docker-ce-cli: Docker 命令行工具。
+			  # containerd.io: 容器运行时，管理容器生命周期。
+			  # docker-buildx-plugin: 构建多平台镜像的插件。
+			  # docker-compose-plugin: 用于定义和运行多容器应用的插件。
+			  
+			  docker run hello-world # 测试是否安装成功
+			  ```
+			- 整理成安装脚本
+			-
+			  ```shell
+			  #!/bin/bash
+			  
+			  # 更新软件包列表，获取最新包信息。
+			  sudo apt-get update
+			  
+			  # 安装证书和 curl 工具。
+			  sudo apt-get install -y ca-certificates curl
+			  
+			  # 创建目录用于存放 APT 密钥。
+			  sudo install -m 0755 -d /etc/apt/keyrings
+			  
+			  # 下载 Docker GPG 密钥到指定目录。
+			  curl -fsSL https://download.docker.com/linux/debian/gpg | sudo tee /etc/apt/keyrings/docker.asc
+			  
+			  # 设置密钥文件为可读权限。
+			  sudo chmod a+r /etc/apt/keyrings/docker.asc
+			  
+			  # 添加 Docker 软件源到系统列表。
+			  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+			  
+			  # 更新软件包列表获取新源信息。
+			  sudo apt-get update
+			  
+			  # 安装 Docker 的核心组件和插件。
+			  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+			  
+			  # 测试是否安装成功。
+			  sudo docker run hello-world
+			  ```
+		- 修改cgroup
+			- 修改/etc/containerd/config.toml
+				- 将disabled_plugins中的cri移除
+				- 添加如下内容
+					  ```
+					  version = 2
+					  [plugins]
+					    [plugins."io.containerd.grpc.v1.cri"]
+					     [plugins."io.containerd.grpc.v1.cri".containerd]
+					        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+					          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+					            runtime_type = "io.containerd.runc.v2"
+					            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+					              SystemdCgroup = true
+					  ```
+				- 重启: systemctl restart containerd
+				- 查看是否生效
+					- containerd config dump | grep -i -C 3 cgroup
+- ### 安装k8s
+	- 安装 kubeadm、kubelet 和 kubectl
+		- `kubeadm`：用来初始化集群的指令。
+		- `kubelet`：在集群中的每个节点上用来启动 Pod 和容器等。
+		- `kubectl`：用来与集群通信的命令行工具。
+		- 控制平面与 kubelet 之间可以存在一个次要版本的偏差,但 kubelet 的版本不可以超过 API 服务器的版本。 例如，1.7.0 版本的 kubelet 可以完全兼容 1.8.0 版本的 API 服务器，反之则不可以。
+		- 所有节点
+			  ```shell
+			  apt-get install -y apt-transport-https ca-certificates curl gpg  # 安装 HTTPS 传输、证书和 GPG 工具。
+			  
+			  curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg  # 下载 Kubernetes GPG 密钥并保存。
+			  
+			  echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list  # 添加 Kubernetes 软件源到系统列表。
+			  
+			  sudo apt-get update  # 更新软件包列表获取新源信息。
+			  sudo apt-get install -y kubelet kubeadm kubectl  # 安装 Kubernetes 组件 kubelet、kubeadm、kubectl。
+			  sudo apt-mark hold kubelet kubeadm kubectl  # 锁定 Kubernetes 组件版本，防止自动更新。
+			  ```
+			- 整理成脚本
+			-
+			  ```shell
+			  #!/bin/bash
+			  
+			  # 安装 HTTPS 传输、证书和 GPG 工具。
+			  sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+			  
+			  # 下载 Kubernetes GPG 密钥并保存。
+			  curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+			  
+			  # 添加 Kubernetes 软件源到系统列表。
+			  echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list > /dev/null
+			  
+			  # 更新软件包列表获取新源信息。
+			  sudo apt-get update
+			  
+			  # 安装 Kubernetes 组件 kubelet、kubeadm、kubectl。
+			  sudo apt-get install -y kubelet kubeadm kubectl
+			  
+			  # 锁定 Kubernetes 组件版本，防止自动更新。
+			  sudo apt-mark hold kubelet kubeadm kubectl
+			  ```
+	- cgroup
+		- 关于cgroup
+			- 在 Linux 上，控制组（CGroup)用于限制分配给进程的资源。
+			- cgroup是 Linux 内核的一个特性，提供了 API 和接口，供用户空间的工具和服务管理器使用。
+			- kubelet 和底层容器运行时都需要对接控制组来强制执行为 Pod 和容器管理资源并为诸如 CPU、内存这类资源设置请求和限制。若要对接控制组，kubelet 和容器运行时需要使用一个 cgroup 驱动。 关键的一点是 kubelet 和容器运行时需使用相同的 cgroup 驱动并且采用相同的配置。
+				- cgroupfs 驱动
+					- cgroupfs 是通过文件系统接口来管理 cgroup 的一种方式。每个 cgroup 子系统（如 CPU、内存等）在 /sys/fs/cgroup 下有一个独立的目录，通过这个目录可以控制和查看资源使用情况。
+					- cgroupfs 驱动是 kubelet 中默认的 cgroup 驱动
+				- systemd 驱动
+					- systemd 是一个系统和服务管理器，负责在系统启动时初始化系统组件和管理系统服务。它是现代 Linux 发行版中常用的 init 系统，替代了传统的 SysV init。
+					- systemd 也可以管理 cgroup。Systemd 使用单元文件（如 .service 文件）来定义服务的启动参数和资源限制。通过这些文件，管理员可以指定服务的 CPU、内存、I/O 等资源限制。Systemd 可以动态调整 cgroup 的资源限制，支持在运行时修改服务的资源配置。
+		- kubelet
+			- 在版本 1.22 及更高版本中，如果用户没有在 `KubeletConfiguration` 中设置 `cgroupDriver` 字段， `kubeadm` 会将它设置为默认值 `systemd`。
+			- 查看 `sudo cat /var/lib/kubelet/config.yaml | grep -i cgroup`
+- ### 运行
+	- `kubeadm init --pod-network-cidr 10.244.0.0/16`
+		- 如果是国内服务器更换镜像使用`kubeadm init --image-repository=registry.aliyuncs.com/google_containers`
+		- 控制平面节点是运行控制平面组件的机器， 包括 [etcd](https://kubernetes.io/zh-cn/docs/tasks/administer-cluster/configure-upgrade-etcd/)（集群数据库） 和 [API 服务器](https://kubernetes.io/zh-cn/docs/concepts/architecture/#kube-apiserver) （命令行工具 [kubectl](https://kubernetes.io/zh-cn/docs/reference/kubectl/) 与之通信）。
+	- 为了使用kubectl操作集群对于非root用户
+		  ```shell
+		    mkdir -p $HOME/.kube
+		    sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+		    sudo chown $(id -u):$(id -g) $HOME/.kube/config
+		  ```
+		- root用户
+		-
+		  ```shell
+		    export KUBECONFIG=/etc/kubernetes/admin.conf
+		  ```
+	- worker节点加入集群需要根据kubeadm init命令输出的日志,类似如下
+		- 或者通过命令`kubeadm token create --print-join-command`获取
+		-
+		  ```shell
+		  
+		  kubeadm join 172.22.18.35:6443 --token 42q4n9.12ej1g2cn40hveu8 	--discovery-token-ca-cert-hash sha256:b9a3c60a12ead32d715cacb60fc09ebe28cd61ee9cd6e24abef161aa30b78f1e
+		  ```
+	- 防火墙在调式阶段建议全部设置为关闭状态
+		  ```
+		  iptables -P INPUT ACCEPT
+		  iptables -P FORWARD ACCEPT
+		  iptables -P OUTPUT ACCEPT
+		  iptables -F
+		  ```
+	- 使用flannel进行pod通信
+		  ```
+		  kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+		  ```
+		- kubectl get node 状态将变成ready
+- ### 测试
+	- 测试配置test.yaml
+		  ```shell
+		  apiVersion: v1
+		  kind: Service
+		  metadata:
+		    name: test-k8s
+		  spec:
+		    selector:
+		      app: test-k8s
+		    type: ClusterIP
+		    ports:
+		      - port: 8080        # 本 Service 的端口
+		        targetPort: 8080  # 容器端口
+		        
+		  ---
+		  apiVersion: apps/v1
+		  kind: Deployment
+		  metadata:
+		    # 部署名字
+		    name: test-k8s
+		  spec:
+		    replicas: 2
+		    # 用来查找关联的 Pod，所有标签都匹配才行
+		    selector:
+		      matchLabels:
+		        app: test-k8s
+		    # 定义 Pod 相关数据
+		    template:
+		      metadata:
+		        labels:
+		          app: test-k8s
+		      spec:
+		        # 定义容器，可以多个
+		        containers:
+		        - name: test-k8s # 容器名字
+		          image: ccr.ccs.tencentyun.com/k8s-tutorial/test-k8s:v1 # 镜像
+		  
+		  ```
+	- 执行 `kubectl apply -f test.yaml`
+	- 然后 在工作节点上访问进行测试
+- ### 遇到的问题
+	- cri endpoints
+		- `WARN[0000] runtime connect using default endpoints: [unix:///run/containerd/containerd.sock unix:///run/crio/crio.sock unix:///var/run/cri-dockerd.sock]. As the default settings are now deprecated, you should set the endpoint instead.`
+			- 解决
+			-
+			  ```shell
+			  # 检查当前使用的容器运行时
+			  sudo crictl info
+			  
+			  # 设置 crictl 配置
+			  cat << EOF | sudo tee /etc/crictl.yaml
+			  runtime-endpoint: unix:///run/containerd/containerd.sock
+			  image-endpoint: unix:///run/containerd/containerd.sock
+			  timeout: 10
+			  debug: false
+			  EOF
+			  ```
+	- flannel报错
+		- `Warning  FailedCreatePodSandBox  3s    kubelet            Failed to create pod sandbox: rpc error: code = Unknown desc = failed to setup network for sandbox "733b3f403c109d6f2386f1b7483ab0fcd4d5ad63810108830be299a6daf8f11e": plugin type="flannel" failed (add): loadFlannelSubnetEnv failed: open /run/flannel/subnet.env: no such file or directory`
+			- 在所有的节点上增加/run/flannel/subnet.env文件内容为
+				 ```
+				  FLANNEL_NETWORK=10.244.0.0/16
+				  FLANNEL_SUBNET=10.244.0.1/24
+				  FLANNEL_MTU=1450
+				  FLANNEL_IPMASQ=true
+				  ```
+	- br_netfilter错误
+		- `E1118 09:40:21.986555       1 main.go:269] Failed to check br_netfilter: stat /proc/sys/net/bridge/bridge-nf-call-iptables: no such file or directory`
+			- 这个错误信息表明，Kubernetes 在启动时无法找到 `/proc/sys/net/bridge/bridge-nf-call-iptables` 文件。这通常是因为内核模块 `br_netfilter` 没有加载，而这个模块对于 Kubernetes 网络功能（尤其是使用 Flannel 等 CNI 插件）是必需的
+			- 解决
+				- 1. 加载 `br_netfilter` 模块：
+					- 运行以下命令来加载 `br_netfilter` 模块：
+					-
+					  ```bash
+					   sudo modprobe br_netfilter
+					  ```
+				- 2. 确保模块在重启后自动加载：
+					- 编辑 `/etc/modules-load.d/k8s.conf` 文件（如果不存在则创建），并添加以下内容：
+					-
+					  ```plaintext
+					   br_netfilter
+					  ```
+				- 3. 设置 `bridge-nf-call-iptables`：
+					- 运行以下命令以确保 `bridge-nf-call-iptables` 设置为 1：
+					-
+					  ```bash
+					   echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables
+					  ```
+					- 为了在系统重启后保持此设置，编辑 `/etc/sysctl.d/k8s.conf` 文件（如果不存在则创建），并添加以下内容：
+					-
+					  ```plaintext
+					   net.bridge.bridge-nf-call-iptables = 1
+					  ```
+				- 4. 应用 sysctl 配置：
+					- 运行以下命令以应用所有 sysctl 配置：
+					-
+					  ```bash
+					  sudo sysctl --system
+					  ```
+	- flannel sandbox
+		- `Warning  FailedCreatePodSandBox  4m14s (x17 over 7m41s)  kubelet            (combined from similar events): Failed to create pod sandbox: rpc error: code = Unknown desc = failed to setup network for sandbox "664dada30982a7db0a1b9bb64acf9018ec720cb4578cfb02b5cb7a6d21c80b11": plugin type="flannel" failed (add): failed to set bridge addr: "cni0" already has an IP address different from 10.244.1.1/24`
+			- 查看所有的节点的网口配置,ifconfig
+			- 需要确保flannel,cni0网口和/run/flannel/subnet.env中配置的subnet保持一致
+			-
+			  ```plaintext
+			  #master节点
+			  #subnet.env
+			  FLANNEL_NETWORK=10.244.0.0/16
+			  FLANNEL_SUBNET=10.244.0.1/24
+			  FLANNEL_MTU=1450
+			  FLANNEL_IPMASQ=true
+			  
+			  cni0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1450
+			          inet 10.244.0.1  netmask 255.255.255.0  broadcast 10.244.0.255
+			  
+			  flannel.1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1450
+			          inet 10.244.0.0  netmask 255.255.255.255  broadcast 0.0.0.0        
+			          
+			          
+			  #worker节点
+			  #subnet.env
+			  FLANNEL_NETWORK=10.244.0.0/16
+			  FLANNEL_SUBNET=10.244.1.1/24
+			  FLANNEL_MTU=1450
+			  FLANNEL_IPMASQ=true
+			  # ifconfig
+			  cni0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1450
+			          inet 10.244.1.1  netmask 255.255.255.0  broadcast 10.244.1.255
+			  flannel.1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1450
+			          inet 10.244.1.0  netmask 255.255.255.255  broadcast 0.0.0.0   
+			          
+			  ```
+- ### 容器调式
+	- 1. 使用不同的调试镜像：
+	  ```bash
+	   kubectl debug -it -n kube-system pod/coredns-7c65d6cfc9-7vw6q --image=nicolaka/netshoot --target=coredns
+	  ```
+	- 2. 复制 Pod 进行调试：
+		  ```bash
+		  # 创建 Pod 的副本进行调试
+		   kubectl debug -n kube-system pod/coredns-7c65d6cfc9-7vw6q --copy-to=coredns-debug
+		  ```
+	- 3. 在不共享进程命名空间的情况下调试：
+		  ```shell
+		     # 不使用 --target 参数
+		   kubectl debug -it -n kube-system pod/coredns-7c65d6cfc9-7vw6q --image=busybox:1.28
+		  ```
