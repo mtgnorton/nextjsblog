@@ -21,7 +21,6 @@ export default async function AllPage(props: {
                 posts={posts} 
                 totalPages={totalPages}
                 isShowPagination={true} 
-                page={currentPage}
             />
         </div>
     )
