@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Metadata } from 'next';
 import BlogLists from "@/app/ui/components/blog-lists";
 import Profile from "@/app/ui/components/profile";
