@@ -5,6 +5,7 @@ import path from 'path';
 interface BlogPost {
   title: string;
   updatedAt: string;
+  fileName: string;
 }
 
 interface BlogListsProps {
@@ -17,13 +18,24 @@ export async function getBlogPosts(props?: BlogListsProps): Promise<BlogPost[]> 
   const fileNames = fs.readdirSync(postsDirectory);
 
   const posts = fileNames.map((fileName) => {
-    const filePath = path.join(postsDirectory, fileName);
-    const stats = fs.statSync(filePath);
-    const mtime = stats.mtime;
-    const updatedAt = `${mtime.toISOString().split('T')[0]} ${mtime.toTimeString().split(' ')[0].substring(0,5)}`;
+    // 假设文件名格式为: YYYY-MM-DD-title.mdx
+    const match = fileName.match(/^(\d{4}-\d{2}-\d{2})-(.+)\.mdx$/);
+    
+
+    if (!match) {
+      // 如果文件名不符合格式，使用当前时间
+      return {
+        title: fileName.replace(/\.mdx$/, ''),
+        updatedAt: new Date().toISOString().split('T')[0],
+        fileName: fileName.replace(/\.mdx$/, '')
+      };
+    }
+
+    const [, date, title] = match;
     return {
-      title: fileName.replace(/\.mdx$/, ''),
-      updatedAt
+      title: title,
+      updatedAt: `${date}`,
+      fileName: `${date}-${title}`
     };
   });
 
@@ -44,12 +56,12 @@ export async function getBlogPosts(props?: BlogListsProps): Promise<BlogPost[]> 
 export default async function BlogLists({ limit, sortOrder = 'asc' }: BlogListsProps = {}) {
     const posts = await getBlogPosts({ limit, sortOrder });
     return (
-      <div className="flex flex-col">
+      <div className="flex flex-col w-full">
         {posts.map((post) => (
-          <div key={post.title} className="flex flex-row gap-10 mt-4">
-            <span>{post.updatedAt}</span>
+          <div key={post.fileName} className="flex flex-row mt-4">
+            <span className="w-36 flex-shrink-0">{post.updatedAt}</span>
             <Link 
-              href={`/blog/${encodeURIComponent(post.title)}`}
+              href={`/blog/${post.fileName}`}
               className="text-link border-b-2 border-b-underline hover:text-hover"
             >
               {post.title}

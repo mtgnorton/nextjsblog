@@ -33,7 +33,7 @@ export default async function Page({
 export async function generateStaticParams() {
     const posts = await getBlogPosts()
     return posts.map((post) => ({
-        title: post.title,
+        fileName: post.fileName,
     }))
 }
    
