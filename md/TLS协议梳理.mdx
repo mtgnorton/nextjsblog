@@ -139,22 +139,22 @@
 						- 解密时将密文与密钥流按位异或
 					- 工作原理详解:
 						- 加密和解密过程:
-							- 加密: 明文 $ P $ 与密钥 $ K $ 进行异或操作,生成密文 $ C $ :
-								- $$ C = P \oplus K $$
-							- 解密: 密文 $ C $ 与密钥 $ K $ 再次异或,恢复明文 $ P $ :
-								- $$ C \oplus K = (P \oplus K) \oplus K = P \oplus (K \oplus K) = P \oplus 0 = P $$
+							- 加密: 明文  P  与密钥  K  进行异或操作,生成密文  C  :
+								-  C = P ⊕ K 
+							- 解密: 密文  C  与密钥  K  再次异或,恢复明文  P  :
+								-  C ⊕ K = (P ⊕ K) ⊕ K = P ⊕ (K ⊕ K) = P ⊕ 0 = P 
 						- 异或操作的核心特性:
-							- 自反性: $ A \oplus A = 0 $
+							- 自反性:  A ⊕ A = 0 
 								- 任何值与自身异或结果为0
-							- 与0的关系: $ A \oplus 0 = A $
+							- 与0的关系:  A ⊕ 0 = A 
 								- 任何值与0异或结果是其本身
-							- 可逆性: $ (A \oplus B) \oplus B = A $
+							- 可逆性:  (A ⊕ B) ⊕ B = A 
 								- 异或操作可逆,两次异或同一个值会恢复原始值
 						- 举例说明:
-							- 明文 $ P = 1010 $
-							- 密钥 $ K = 1100 $
-							- 加密: $$ C = P \oplus K = 1010 \oplus 1100 = 0110 $$
-							- 解密: $$ P = C \oplus K = 0110 \oplus 1100 = 1010 $$
+							- 明文  P = 1010 
+							- 密钥  K = 1100 
+							- 加密:  C = P ⊕ K = 1010 ⊕ 1100 = 0110 
+							- 解密:  P = C ⊕ K = 0110 ⊕ 1100 = 1010 
 					- 特点:
 						- 实现简单
 						- 软件中运行速度快
@@ -218,7 +218,7 @@
 						- 保证数据完整性
 						- 克服了RSA等算法的长度限制
 					-
-					  ```
+					  ```golang
 					  type DigitalSigner struct {
 					  	privateKey *rsa.PrivateKey
 					  	publicKey  *rsa.PublicKey
@@ -356,8 +356,8 @@
 					  Early Exporter Master Secret
 					  ```
 					- 用途:
-						- Early Exporter Master Secret 是保护 0-RTT 数据的工具
-						- 它在 0-RTT 传输过程中使用,提供额外的安全保证
+						- Early Exporter Master Secret 是保护 0-RTT 数据的工具
+						- 它在 0-RTT 传输过程中使用,提供额外的安全保证
 				- Exporter Master Secret (用于外部密钥导出)
 					-
 					  ```
@@ -487,7 +487,7 @@
 		- TLS 证书的文件后缀名并不重要,TLS 证书可以以纯文本形式存储（这是最常见的形式，适用于 Linux、Apache、Unix 和其他服务器）,也可以以二进制形式存储（如 Java、Microsoft Server）,证书以纯文本形式保存为 Base64 编码,二进制文件无法用文本编辑器打开
 			- #### 常用编码
 				- PEM
-					- 这是最常用的证书存储格式。我们通常将 PEM 称为“文本格式”，它是以 Base64 编码的。
+					- 这是最常用的证书存储格式。我们通常将 PEM 称为"文本格式"，它是以 Base64 编码的。
 					- PEM 是使用 ASCII 字母的 Base64 编码文件,PEM格式的文件使用Base64编码，并且通常以-----BEGIN ...-----和-----END ...-----包围起来，用来标识不同的部分。
 				- DER
 					- DER 格式是一种二进制证书格式。它不是文本，无法像文本一样打开阅读或复制。这是与 Base64 的主要区别。
@@ -656,11 +656,11 @@
 				- ClientHello 会发送会话 ID或ticket。但对于新连接，会话 ID或ticket 为空。只有在尝试恢复之前的会话时，才会发送非空的会话 ID或ticket。这是为了支持会话恢复（Session Resumption）机制
 				- 在 RSA 握手中，预主密钥由客户端生成的随机数据组成。在 DH系列算法中，客户端和服务器使用商定的参数分别计算相同的预主密钥。
 				- ServerKeyExchange和ClientKeyExchange不同算法的区别
-				  | 算法类型  | ServerKeyExchange | ClientKeyExchange | 安全特性  | 使用场景  |
+				  | 算法类型  | ServerKeyExchange | ClientKeyExchange | 安全特性&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;       | 使用场景  |
 				  |---|---|---|---|---|
-				  |  RSA  | 不需要 | 加密的预主密钥  | 不提供前向安全性  实现简单  计算开销较大 | 传统系统  简单部署场景  |
-				  |  DHE/ECDHE  | 必需： DH/ECDH参数  临时公钥  参数签名  | 客户端临时公钥 |   完美前向安全性  每次会话新密钥  最高安全级别  |  现代HTTPS  高安全需求场景  |
-				  |  DH/ECDH(静态)  |  条件发送： 证书含参数则不需要  证书不含则需要 | 客户端公钥  | 有限前向安全性  密钥复用 | 特定应用场景  性能优先场景  |
+				  |  RSA  | 不需要 | 加密的预主密钥  | 不提供前向安全性  实现简单  计算开销较大 | 传统系统  简单部署场景  |
+				  |  DHE/ECDHE  | 必需： DH/ECDH参数  临时公钥  参数签名  | 客户端临时公钥 |   完美前向安全性  每次会话新密钥  最高安全级别  |  现代HTTPS  高安全需求场景  |
+				  |  DH/ECDH(静态)  |   条件发送： 证书含参数则不需要  证书不含则需要 | 客户端公钥  | 有限前向安全性  密钥复用 | 特定应用场景  性能优先场景  |
 		- #### 实际握手举例
 			- ![image.png](../md-image/image_1735626457741_0.png)
 			- ClientHello请求细节
@@ -763,11 +763,11 @@
 			  ```
 			- ServerHello请求细节
 			- 服务器选用的加密套件为TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-				- 使用 ECDHE 进行密钥交换
+				- 使用 ECDHE 进行密钥交换
 					- 因为使用ECDHE进行密钥交换,在tls1.2中会有专门的ServerKeyExchange 和 ClientKeyExchange阶段
 				- RSA 用于认证
-				- AES-128-GCM 用于加密
-				- SHA256 用于哈希
+				- AES-128-GCM 用于加密
+				- SHA256 用于哈希
 			-
 			  ```
 			  Frame 416: 1334 bytes on wire (10672 bits), 1334 bytes captured (10672 bits) on interface en0, id 0
@@ -838,10 +838,10 @@
 		             v {Finished}              -------->
 		               [Application Data]      <------->  [Application Data]
 		  
-		                +  表示在前面提到的消息中发送的重要扩展。
-		                *  表示可选的或依情况而定的消息/扩展,不是总是会发送。
-		                {} 表示使用从[发送方]_handshake_traffic_secret派生的密钥保护的消息。
-		                [] 表示使用从[发送方]_application_traffic_secret_N派生的密钥保护的消息。
+		        +  表示在前面提到的消息中发送的重要扩展。
+		        *  表示可选的或依情况而定的消息/扩展,不是总是会发送。
+		        {} 表示使用从[发送方]_handshake_traffic_secret派生的密钥保护的消息。
+		        [] 表示使用从[发送方]_application_traffic_secret_N派生的密钥保护的消息。
 		  ```
 		- 流程解读:
 			- 1. ClientHello: 客户端发送支持的加密套件列表、key_share扩展(包含客户端的ECDH公钥)等信息
@@ -903,7 +903,7 @@
 			- 8. Certificate(可选): 如果服务器请求了客户端证书,客户端发送证书
 			- 9. CertificateVerify(可选): 如果发送了客户端证书,客户端对握手消息签名
 			- 10. Finished: 客户端发送验证数据,确认握手完成
-			- 上图使用wireshark对`curl https://www.example.com` 握手过程进行抓包
+			- 上图使用wireshark对`curl https://www.example.com` 握手过程进行抓包
 		- 实际握手举例:
 			- ![image.png](../md-image/image_1735615924965_0.png)
 			- 上图使用wireshark对`curl https://www.example.com` 握手过程进行抓包
@@ -1099,23 +1099,23 @@
 				  ```
 - ## 会话复用
 	- ### 目的
-		- 减少握手开销：完整的 TLS 握手需要多次往返和复杂的加密运算
+		- 减少握手开销：完整的 TLS 握手需要多次往返和复杂的加密运算
 		- 提高性能：重用之前协商的密钥材料，加快连接建立速度
 		- 降低服务器负载：减少CPU密集型的加密操作
 	- ### 三种方式
 		- Session ID(TLS1.2):
-			- 在首次完整 TLS 握手时，服务器生成一个唯一的 Session ID 并与会话相关的密钥材料（如主密钥、加密套件等）一起存储在服务器端；当客户端再次连接时，通过在 ClientHello 消息中携带之前获得的 Session ID，服务器检查并找到对应的会话信息后，双方就可以直接重用之前协商的密钥材料，从而跳过证书验证和密k钥交换等步骤，大大减少了握手往返次数和计算开销。
+			- 在首次完整 TLS 握手时，服务器生成一个唯一的 Session ID 并与会话相关的密钥材料（如主密钥、加密套件等）一起存储在服务器端；当客户端再次连接时，通过在 ClientHello 消息中携带之前获得的 Session ID，服务器检查并找到对应的会话信息后，双方就可以直接重用之前协商的密钥材料，从而跳过证书验证和密k钥交换等步骤，大大减少了握手往返次数和计算开销。
 		- Session Ticket(TLS1.2):
-			- 服务器不再存储会话状态，而是在首次握手完成时，将会话信息（包括主密钥、加密套件等）用票据加密密钥（Ticket Encryption Key）加密后，以票据（Ticket）的形式发送给客户端保存；当客户端再次连接时，将保存的票据在 ClientHello 中发回服务器，服务器使用相同的票据加密密钥解密该票据以恢复会话状态，从而实现无状态的会话复用，这种机制特别适合需要横向扩展的大规模部署场景
+			- 服务器不再存储会话状态，而是在首次握手完成时，将会话信息（包括主密钥、加密套件等）用票据加密密钥（Ticket Encryption Key）加密后，以票据（Ticket）的形式发送给客户端保存；当客户端再次连接时，将保存的票据在 ClientHello 中发回服务器，服务器使用相同的票据加密密钥解密该票据以恢复会话状态，从而实现无状态的会话复用，这种机制特别适合需要横向扩展的大规模部署场景
 		- PSK(TLS1.3):
-			- 在 TLS 1.3 中，ID和Ticket的方式已经被弃用,使用PSK方式
-			- PSK（Pre-Shared Key）会话恢复机制的工作原理是：当首次完整 TLS 握手完成时，服务器会生成一个包含会话参数的加密票据（ticket）发送给客户端保存，在后续连接中，客户端可以在 ClientHello 消息中携带这个 PSK 标识符，如果服务器验证有效，双方就可以使用这个预共享密钥（配合新的 (EC)DHE 密钥交换）快速建立安全连接，从而避免了完整的握手过程，同时保证了前向安全性。
+			- 在 TLS 1.3 中，ID和Ticket的方式已经被弃用,使用PSK方式
+			- PSK（Pre-Shared Key）会话恢复机制的工作原理是：当首次完整 TLS 握手完成时，服务器会生成一个包含会话参数的加密票据（ticket）发送给客户端保存，在后续连接中，客户端可以在 ClientHello 消息中携带这个 PSK 标识符，如果服务器验证有效，双方就可以使用这个预共享密钥（配合新的 (EC)DHE 密钥交换）快速建立安全连接，从而避免了完整的握手过程，同时保证了前向安全性。
 			- 优点:
 				- 安全性更高,强制与 (EC)DHE 结合使用,提供完美前向保密（PFS）
 				- 握手过程更简化,支持 0-RTT 数据传输
 				- 扩展性更好,无需跨服务器同步状态,适合分布式系统部署,更容易实现负载均衡
 		- TLS1.2如何确定使用的哪种方式
-			- 在TLS1.2中 通过观察 TLS 握手过程中的数据包特征可以确定使用的复用机制：如果看到 ClientHello 中包含非空的 Session ID 且 ServerHello 返回相同的 Session ID 进行复用，则是使用 Session ID 机制；如果看到 ClientHello 中包含 session_ticket 扩展并携带之前的票据，且在握手过程中出现 NewSessionTicket 消息，则是使用 Session Ticket 机制；此外，虽然客户端可能同时支持两种机制，但最终使用哪种取决于服务器的选择和响应。
+			- 在TLS1.2中 通过观察 TLS 握手过程中的数据包特征可以确定使用的复用机制：如果看到 ClientHello 中包含非空的 Session ID 且 ServerHello 返回相同的 Session ID 进行复用，则是使用 Session ID 机制；如果看到 ClientHello 中包含 session_ticket 扩展并携带之前的票据，且在握手过程中出现 NewSessionTicket 消息，则是使用 Session Ticket 机制；此外，虽然客户端可能同时支持两种机制，但最终使用哪种取决于服务器的选择和响应。
 			-
 	- ### tls1.2 流程
 		-
