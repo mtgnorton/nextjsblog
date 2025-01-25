@@ -13,7 +13,6 @@ export default async function AllPage(props: {
     const params = await props.searchParams;
     const currentPage = Number(params?.page) || 1;
     const { posts, totalPages } = await getPosts({ sort: 'desc', page: currentPage });
-    console.log(posts,totalPages,currentPage,555)
     return (
         <div className="flex flex-col mt-20">
           
@@ -25,3 +24,13 @@ export default async function AllPage(props: {
         </div>
     )
 }
+
+export async function generateStaticParams() {
+  const { totalPages } = await getPosts();
+  
+  return Array.from({ length: totalPages }, (_, i) => ({
+    searchParams: {
+      page: (i + 1).toString()
+    }
+  }));
+} 
