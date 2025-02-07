@@ -1,7 +1,6 @@
 import { Metadata } from 'next';
 import { getPosts } from '@/app/ui/components/blog-lists';
 import '@/app/(blog)/blog/atom-one-dark.css';
-import dynamic from 'next/dynamic';
 import TOCWrapper from '@/app/ui/components/toc-wrapper';
 
 export const metadata: Metadata = {
