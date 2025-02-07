@@ -13,7 +13,6 @@
 		  sysctl net.ipv4.ip_forward
 		  ```
 		- 如果未启动
-		-
 		  ```shell
 		  # 设置所需的 sysctl 参数，参数在重新启动后保持不变
 		  cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
@@ -53,7 +52,6 @@
 			  docker run hello-world # 测试是否安装成功
 			  ```
 			- 整理成安装脚本
-			-
 			  ```shell
 			  #!/bin/bash
 			  
@@ -121,7 +119,6 @@
 			  sudo apt-mark hold kubelet kubeadm kubectl  # 锁定 Kubernetes 组件版本，防止自动更新。
 			  ```
 			- 整理成脚本
-			-
 			  ```shell
 			  #!/bin/bash
 			  
@@ -168,13 +165,11 @@
 		    sudo chown $(id -u):$(id -g) $HOME/.kube/config
 		  ```
 		- root用户
-		-
 		  ```shell
 		    export KUBECONFIG=/etc/kubernetes/admin.conf
 		  ```
 	- worker节点加入集群需要根据kubeadm init命令输出的日志,类似如下
 		- 或者通过命令`kubeadm token create --print-join-command`获取
-		-
 		  ```shell
 		  
 		  kubeadm join 172.22.18.35:6443 --token 42q4n9.12ej1g2cn40hveu8 	--discovery-token-ca-cert-hash sha256:b9a3c60a12ead32d715cacb60fc09ebe28cd61ee9cd6e24abef161aa30b78f1e
@@ -236,7 +231,6 @@
 	- cri endpoints
 		- `WARN[0000] runtime connect using default endpoints: [unix:///run/containerd/containerd.sock unix:///run/crio/crio.sock unix:///var/run/cri-dockerd.sock]. As the default settings are now deprecated, you should set the endpoint instead.`
 			- 解决
-			-
 			  ```shell
 			  # 检查当前使用的容器运行时
 			  sudo crictl info
@@ -264,30 +258,25 @@
 			- 解决
 				- 1. 加载 `br_netfilter` 模块：
 					- 运行以下命令来加载 `br_netfilter` 模块：
-					-
 					  ```bash
 					   sudo modprobe br_netfilter
 					  ```
 				- 2. 确保模块在重启后自动加载：
 					- 编辑 `/etc/modules-load.d/k8s.conf` 文件（如果不存在则创建），并添加以下内容：
-					-
 					  ```plaintext
 					   br_netfilter
 					  ```
 				- 3. 设置 `bridge-nf-call-iptables`：
 					- 运行以下命令以确保 `bridge-nf-call-iptables` 设置为 1：
-					-
 					  ```bash
 					   echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables
 					  ```
 					- 为了在系统重启后保持此设置，编辑 `/etc/sysctl.d/k8s.conf` 文件（如果不存在则创建），并添加以下内容：
-					-
 					  ```plaintext
 					   net.bridge.bridge-nf-call-iptables = 1
 					  ```
 				- 4. 应用 sysctl 配置：
 					- 运行以下命令以应用所有 sysctl 配置：
-					-
 					  ```bash
 					  sudo sysctl --system
 					  ```
@@ -295,7 +284,6 @@
 		- `Warning  FailedCreatePodSandBox  4m14s (x17 over 7m41s)  kubelet            (combined from similar events): Failed to create pod sandbox: rpc error: code = Unknown desc = failed to setup network for sandbox "664dada30982a7db0a1b9bb64acf9018ec720cb4578cfb02b5cb7a6d21c80b11": plugin type="flannel" failed (add): failed to set bridge addr: "cni0" already has an IP address different from 10.244.1.1/24`
 			- 查看所有的节点的网口配置,ifconfig
 			- 需要确保flannel,cni0网口和/run/flannel/subnet.env中配置的subnet保持一致
-			-
 			  ```plaintext
 			  #master节点
 			  #subnet.env

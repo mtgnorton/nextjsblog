@@ -16,10 +16,8 @@ export default function Layout({
           <Nav />
           </div> 
 
-
-
         {/* content */}
-        <div className="">
+        <div className="w-full">
             {children}
         </div>
 
