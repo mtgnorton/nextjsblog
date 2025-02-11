@@ -12,14 +12,16 @@ const nextConfig = {
 
 const withMDX = createMDX({
   // Add markdown plugins here, as desired
-  extension: /\.mdx?$/,
+  extension: /\.mdx?$/,  // 匹配 .md 和 .mdx 文件
   options: {
+    remarkPlugins: [
+      [remarkGfm, { singleTilde: false ,        codeBlocks: false       }],  // 支持 GitHub Flavored Markdown 语法,如表格、任务列表等
+    ],  
     rehypePlugins: [
-      rehypeHighlight,
-      rehypeSlug, // add rehype-slug plugin
-      [rehypeAutolinkHeadings, { behavior: 'wrap' }], // wrap the heading with a link
+      rehypeHighlight,   // 为代码块添加语法高亮
+      rehypeSlug,        // 为标题添加 id 属性,便于目录跳转
+      [rehypeAutolinkHeadings, { behavior: 'wrap' }], // 为标题添加锚点链接,使标题可点击跳转
     ],
-    remarkPlugins: [remarkGfm],
   },
 })
 
