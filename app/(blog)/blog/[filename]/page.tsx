@@ -25,7 +25,7 @@ export default async function Page(props: { params: Promise<{ filename: string }
     <div className="flex justify-center items-center">
       <h1 className="text-4xl font-bold">{title}</h1>
     </div>
-    <article className="blog-content prose prose-lg dark:prose-invert max-w-none">
+    <article className="blog-content prose prose-lg dark:prose-invert max-w-none overflow-x-scroll">
       <Post />
     </article>
   </div>

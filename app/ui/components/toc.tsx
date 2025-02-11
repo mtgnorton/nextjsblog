@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useMediaQuery } from 'react-responsive';
 
 interface Heading {
   id: string;
@@ -55,19 +56,23 @@ export function useHeadings() {
   return headings;
 }
 
-const HeadingItem = ({ heading }: { heading: Heading }) => {
+const HeadingItem = ({ heading, onClick }: { heading: Heading; onClick?: () => void }) => {
   return (
     <li>
       <a
         href={`#${heading.id}`}
-        className="text-link hover:text-hover   transition-colors text-sm"
+        className="text-link hover:text-hover transition-colors text-sm"
+        onClick={() => {
+          // 移动端点击后关闭目录
+          onClick?.();
+        }}
       >
         {heading.text}
       </a>
       {heading.children.length > 0 && (
         <ul className="space-y-2 ml-4 mt-2">
           {heading.children.map((child) => (
-            <HeadingItem key={child.id} heading={child} />
+            <HeadingItem key={child.id} heading={child} onClick={onClick} />
           ))}
         </ul>
       )}
@@ -77,14 +82,66 @@ const HeadingItem = ({ heading }: { heading: Heading }) => {
 
 export default function TOC() {
   const headings = useHeadings();
+  const isMobile = useMediaQuery({ maxWidth: 1023 }); // lg breakpoint
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
 
   return (
-    <nav className='fixed p-2 top-[90px] left-10 h-[calc(100vh-80px)] overflow-y-auto w-[170px] hidden lg:block styled-scrollbar' >
-      <ul className="space-y-2">
-        {headings.map((heading) => (
-          <HeadingItem key={heading.id} heading={heading} />
-        ))}
-      </ul>
-    </nav>
+    <>
+      {/* Mobile Toggle Button - 只在移动端显示 */}
+      {isMobile && (
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="fixed bottom-4 left-4 z-50 p-2 bg-background/80 backdrop-blur-sm rounded-full shadow-lg lg:hidden"
+          aria-label="Toggle table of contents"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6 text-primary"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
+        </button>
+      )}
+
+      {/* Mobile TOC */}
+      {isMobile && (
+        <nav
+          className={`lg:hidden fixed top-0 bottom-0 left-0 w-[280px] overflow-y-scroll scrollbar-none 
+            bg-background/95 backdrop-blur z-40 p-4 transition-transform duration-300 
+            border-r border-border shadow-lg [scrollbar-width:none] [-ms-overflow-style:none]
+            ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        >
+          <ul className="space-y-2">
+            {headings.map((heading) => (
+              <HeadingItem 
+                key={heading.id} 
+                heading={heading}
+                onClick={() => setIsMobileMenuOpen(false)}
+              />
+            ))}
+          </ul>
+        </nav>
+      )}
+
+      {/* Desktop TOC */}
+      {!isMobile && (
+        <nav className="hidden lg:block fixed p-2 top-[90px] left-10 h-[calc(100vh-80px)] overflow-y-auto w-[170px] styled-scrollbar">
+          <ul className="space-y-2">
+            {headings.map((heading) => (
+              <HeadingItem key={heading.id} heading={heading} />
+            ))}
+          </ul>
+        </nav>
+      )}
+    </>
   );
 }

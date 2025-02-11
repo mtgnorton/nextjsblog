@@ -20,9 +20,9 @@ export default function RootLayout({
 }) {
   
   return (
-    <html lang="en" >
+    <html lang="en" className='h-100 w-100 overflow-x-hidden' >
      
-      <body className={`${inter.className} antialiased`} >
+      <body className={`${inter.className} antialiased h-100 w-100 overflow-x-hidden`} >
         <ThemeProvider>
           {children}
         </ThemeProvider>
