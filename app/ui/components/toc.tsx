@@ -105,7 +105,7 @@ export default function TOC() {
       <button
         ref={buttonRef}
         onClick={() => setIsMenuOpen(!isMenuOpen)}
-        className="fixed bottom-4 left-40 z-50 p-2 bg-background/80 backdrop-blur-sm rounded-full shadow-lg"
+        className="fixed bottom-4 left-4 z-50 p-2 bg-background/80 backdrop-blur-sm rounded-full shadow-lg )]"
         aria-label="Toggle table of contents"
       >
         <svg
