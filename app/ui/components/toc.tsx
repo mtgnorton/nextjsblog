@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useMediaQuery } from 'react-responsive';
+import { useEffect, useState, useRef } from 'react';
 
 interface Heading {
   id: string;
@@ -62,10 +61,7 @@ const HeadingItem = ({ heading, onClick }: { heading: Heading; onClick?: () => v
       <a
         href={`#${heading.id}`}
         className="text-link hover:text-hover transition-colors text-sm"
-        onClick={() => {
-          // 移动端点击后关闭目录
-          onClick?.();
-        }}
+        onClick={() => onClick?.()}
       >
         {heading.text}
       </a>
@@ -82,66 +78,70 @@ const HeadingItem = ({ heading, onClick }: { heading: Heading; onClick?: () => v
 
 export default function TOC() {
   const headings = useHeadings();
-  const isMobile = useMediaQuery({ maxWidth: 1023 }); // lg breakpoint
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      // 当菜单打开时，点击非导航区域且非按钮区域时关闭菜单
+      if (
+        isMenuOpen &&
+        navRef.current &&
+        buttonRef.current &&
+        !navRef.current.contains(e.target as Node) &&
+        !buttonRef.current.contains(e.target as Node)
+      ) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [isMenuOpen]);
 
   return (
     <>
-      {/* Mobile Toggle Button - 只在移动端显示 */}
-      {isMobile && (
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="fixed bottom-4 left-4 z-50 p-2 bg-background/80 backdrop-blur-sm rounded-full shadow-lg lg:hidden"
-          aria-label="Toggle table of contents"
+      <button
+        ref={buttonRef}
+        onClick={() => setIsMenuOpen(!isMenuOpen)}
+        className="fixed bottom-4 left-40 z-50 p-2 bg-background/80 backdrop-blur-sm rounded-full shadow-lg"
+        aria-label="Toggle table of contents"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-6 w-6 text-primary"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6 text-primary"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 6h16M4 12h16M4 18h16"
+          />
+        </svg>
+      </button>
+
+      <nav
+        ref={navRef}
+        className={`fixed top-0 bottom-0 left-0 overflow-y-scroll scrollbar-none 
+          bg-background/95 backdrop-blur z-40 p-4 transition-transform duration-300 
+           shadow-lg [scrollbar-width:none] [-ms-overflow-style:none]
+          ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+          w-[280px]`}
+      >
+        <ul className="space-y-2">
+          {headings.map((heading) => (
+            <HeadingItem 
+              key={heading.id} 
+              heading={heading}
+              onClick={() => setIsMenuOpen(false)}
             />
-          </svg>
-        </button>
-      )}
-
-      {/* Mobile TOC */}
-      {isMobile && (
-        <nav
-          className={`lg:hidden fixed top-0 bottom-0 left-0 w-[280px] overflow-y-scroll scrollbar-none 
-            bg-background/95 backdrop-blur z-40 p-4 transition-transform duration-300 
-            border-r border-border shadow-lg [scrollbar-width:none] [-ms-overflow-style:none]
-            ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
-        >
-          <ul className="space-y-2">
-            {headings.map((heading) => (
-              <HeadingItem 
-                key={heading.id} 
-                heading={heading}
-                onClick={() => setIsMobileMenuOpen(false)}
-              />
-            ))}
-          </ul>
-        </nav>
-      )}
-
-      {/* Desktop TOC */}
-      {!isMobile && (
-        <nav className="hidden lg:block fixed p-2 top-[90px] left-10 h-[calc(100vh-80px)] overflow-y-auto w-[170px] styled-scrollbar">
-          <ul className="space-y-2">
-            {headings.map((heading) => (
-              <HeadingItem key={heading.id} heading={heading} />
-            ))}
-          </ul>
-        </nav>
-      )}
+          ))}
+        </ul>
+      </nav>
     </>
   );
 }

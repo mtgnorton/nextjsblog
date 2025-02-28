@@ -49,8 +49,8 @@ export async function getPosts(props?: PostsArg): Promise<PostsPagination> {
 
   // 根据 sortOrder 参数排序
   const sortedPosts = posts.sort((a, b) => {
-    const order = props?.sort === 'asc' ? 1 : -1;
-    return order * (new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    const order = props?.sort === 'asc' ? 1 : -1; 
+    return order * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
   });
 
   const totalPages = Math.ceil(sortedPosts.length / ITEMS_PER_PAGE);

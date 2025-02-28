@@ -1,0 +1,231 @@
+- ## 概述
+	- ### WebScoket 协议
+		- WebSocket是一种在单个TCP连接上进行全双工通信的协议,它允许服务端主动向客户端推送数据,实现了客户端与服务器的实时双向通,WebSocket在建立连接时,通过HTTP升级机制将连接从HTTP协议升级到WebSocket协议
+	- ### HTTP轮询的弊端
+		- 因为HTTP请求在每次建立连接时需要经过TCP握手,如果是HTTPS,则还需要经过TLS握手,如果没有启用TFO或者TLS的0RTT等优化措施,那么每次HTTP请求需要经过1-RTT,HTTPS请求在TLS1.2中通常需要3-RTT,TLS1.3中通常需要2-RTT,会造成服务器性能的浪费和通信的延迟
+	- ### Websocket单机的问题
+		- 理想状态下一个单机能够承载的ws连接的数量大约在5w-10w左右,当连接数量继续上升时,单机将出现问题,此时需要考虑使用集群方案,来满足横向扩展的需求
+	- ### 可选的方案
+		- 设计方案时,首先需要考虑的问题是,当不同的用户连接到了集群中不同的节点时,当需要给某个用户发消息时,如何确定用户连接到了哪个节点上,然后才能将消息推送给用户,其次Websocket服务应该与业务解耦,可以满足一套集群多个项目使用,其他业务项目在需要长连接的能力时,只需要接入集群,而不需要关心长连接如何实现,不需要关心稳定性,可维护性,可扩展性等,只需要关心业务逻辑即可
+		- #### 基于网关的方案
+			- 需要自己开发网关,实现用户和节点之间的映射关系,当用户连接到网关时,网关会根据用户的标识,将用户连接到对应的节点上,当需要给某个用户发消息时,网关会根据用户的标识,将消息推送对应的节点,节点再将消息推送给用户,还需要实现负载均衡,断线重连等,并且需要考虑集群中节点的扩容和缩容,需要考虑节点之间的状态同步,需要考虑节点之间的故障转移等,复杂度较高,需要考虑的因素较多
+		- #### 基于消息队列的方案
+			  ```
+			  grep --line-buffered "Request finished" | python3 log_analyzer.py
+			  ```
+- ## 核心实现
+	- ### 架构设计
+		- 最终选择基于消息队列的方案,整体架构如下图所示
+			- ![image_1739944240363_0.png](../md-image/image_1739944240363_0.png)
+	- ### 功能特性
+		- 基于项目ID,用户ID,连接ID实现消息的群发和单发
+		- 业务服务端和用户端对于WebSocket集群在实现上基本对等
+		- 业务服务端可以使用http和ws两种协议向用户发送消息
+		- WebScoket集群会向业务服务端推送用户的连接断开事件,并且定时推送在线用户到业务服务端
+		- 使用k8s实现分布式部署
+		- 使用istio实现基于已连接数量的负载均衡
+		- 基于prometheus和grafana实现关键指标的收集和展示
+	- ### 消息设计
+		- #### 消息类型
+			  ```golang
+			  const (
+			  	TypePush       Type = "push"       // 推送消息
+			  	TypeRequest    Type = "request"    // 用户请求消息
+			  	TypeConnect    Type = "connect"    // 用户连接消息
+			  	TypeDisconnect Type = "disconnect" // 用户断开连接消息
+			  	TypeOnlineClients Type = "online_clients" // 用户在线列表消息
+			  	TypeHeart Type = "heart" // 心跳消息
+			  )
+			  
+			  ```
+			- 上述消息中流转方向如下
+				- TypePush 代表业务服务端发送给WS集群的消息
+				- TypeRequest 代表用户端发送给WS集群的消息
+				- TypeConnect/TypeDisconnect 为当用户连接和断开时,WS集群发送给业务服务端
+				- TypeOnlineClients 由WS集群定时推送给业务服务端
+				- TypeHeart 由用户端和业务服务端向WS集群发送
+		- ### 消息结构
+			  ```golang
+			  type AffairMsg struct {
+			  	AffairID string      `json:"affair_id,omitempty"` // 业务唯一ID
+			  	AckID    string      `json:"ack_id,omitempty" `   // WS集群唯一ID
+			  	Type     Type        `json:"type,omitempty"`      // 消息类型
+			  	Source   *Source     `json:"source,omitempty"`    // WS集群附加Source,代表哪个用户发送
+			  	To       *To         `json:"to,omitempty"`        // 业务服务端附加To,代表发送给哪些用户
+			      MustReach bool       `json:"must_reach,omitempty"`// 是否必达
+			  }
+			  
+			  type Source struct {
+			  	PID string `json:"pid,omitempty"`
+			  	UID string `json:"uid,omitempty"`
+			  	CID string `json:"cid,omitempty"`
+			  }
+			  type To struct {
+			  	PID  string   `json:"pid,omitempty"`  // WS集群附加
+			  	UIDs []string `json:"uids,omitempty"` // 业务端附加
+			  	CIDs []string `json:"cids,omitempty"` // 业务端附加
+			  }
+			  ```
+			- AffairID: 业务唯一ID，由业务系统生成该唯一ID,用户端发送消息时附加AffairID,业务服务端回复消息时,将该ID和消息一同返回给用户端,用户端可以根据该ID对应到发送消息
+			- AckID: WS集群唯一ID，当WS集群收到消息时，会将该ID和接受成功的消息一同返回给用户端，告知用户端WS集群接受消息成功,如果AckID为空，WS集群不会回复成功消息
+			- PID,UID,CID:
+				- 当业务服务端推送消息时,只需要填写UID和CID,PID由集群附加
+				- 当只有PID时为向该项目下的所有用户推送消息
+				- 当即有UID又有CID时,求并集
+		- ### 消息必达
+			- 如果业务服务端推送的消息MustReach字段为true,则集群会保证尽可能的将该消息送达用户,采用两阶段保证消息到达
+				- 当业务服务端推送消息时,集群节点会首先检查该用户是否有连接,如果有的话,会向所有已有连接推送消息
+				- 如果没有实时连接,则存储该消息,当用户下次建立连接后,立即推送该消息
+			- #### 实现思路
+				- 当业务服务端发送的消息MustReach字段为true时,也必须携带AckID,收到该消息的节点在将该消息放入队列后,回复业务服务端成功,在放入消息队列的同时需要将消息存储到其他持久层中,如数据库表中,当该消息被发送给用户后,数据表中的数据被标记为已完成,当用户上线时,应该检查数据表中是否有未送达的必达消息
+		- ### 消息流转
+			- 一个典型的场景是用户端订阅某个事件,业务服务端根据订阅的事件,推送消息,实例如下
+			- 用户携带PID和UID连接到WS集群,WS集群会给连接分配一个连接ID,假设PID为100,UID为1,连接ID CID为1889530961847926784
+			- 用户发送消息到集群,订阅某个交易对的实时价格
+				  ```json
+				  {
+				      "ack_id": "33d4ae724119154",
+				      "affair_id": "33d4ae724119154",
+				      "payload": {
+				          "body": {
+				              "content": {
+				                  "period": "1",
+				                  "symbol": "EURUSDm"
+				              }
+				          },
+				          "operation": "subscribe",
+				          "type": "kline"
+				      }
+				  }
+				  ```
+			- 集群回复用户端接受消息成功,并附加部分字段然后发送到消息队列中
+				  ```json
+				  {
+				      "ack_id": "33d4ae724119154",
+				      "affair_id": "33d4ae724119154",
+				      "payload": {
+				          "body": {
+				              "content": {
+				                  "period": "1",
+				                  "symbol": "EURUSDm"
+				              }
+				          },
+				          "operation": "subscribe",
+				          "type": "kline"
+				      },
+				     "type": "request", // 集群附加
+				      "source": {    // 集群附加
+				          "pid": "100",
+				          "uid": "1",
+				          "cid": "1889530961847926784"
+				      }
+				  }
+				  ```
+			- 集群所有节点从消息队列拿到该消息进行消费,根据PID查找业务服务端,判断是否有业务服务端的连接在自己的节点上,不在的话直接忽略掉该消息,存在的话将该消息发送到业务服务端
+			- 业务服务端收到消息后,将响应消息发送到集群,集群通过包含AckID的消息告知业务服务端接受消息成功,然后将响应消息附加部分字段后发送到消息队列
+				  ```json
+				  {
+				      "affair_id": "33d4ae724119154",
+				      "ack_id": "383ccb4483db394",
+				      "payload": {
+				         "operation":"subscribe",
+				          "type": "kline",
+				          "body": {
+				              "price": "0.6728998",
+				              "业务消息": "收到订阅的k线价格,clientID:1889554766231056384",
+				              "symbol": "EURUSDm",
+				              "period": "1"
+				          }
+				      },
+				      "type": "push",
+				      "to": {
+				          "cids": [
+				              "1889554766231056384"
+				          ],
+				          "pid": 100, // 集群附加
+				      }
+				  }
+				  ```
+			- 集群所有节点从消息队列拿到该响应消息进行消费,根据PID和CID,判断该客户端的连接是否在自己的节点上,不在的话直接忽略掉该消息,存在的话将该消息部分字段屏蔽后发送到用户端,最终发送到用户端的消息如下
+				  ```json
+				  {
+				      "affair_id": "33d4ae724119154",
+				      "payload": {
+				          "period": "1",
+				          "price": "0.6728998",
+				          "symbol": "EURUSDm",
+				          "业务消息": "收到订阅的k线价格,clientID:1889554766231056384"
+				      }
+				  }
+				  ```
+		- ### 业务Payload
+			- 上述数据结构中,payload字段里面的内容由业务系统自己约定,典型如下
+				  ```
+				      "payload": {
+				        "body": {
+				            "content": {
+				                "period": "1",
+				                "symbol": "EURUSDm"
+				            }
+				        },
+				        "operation": "subscribe",  
+				        "type": "kline"
+				      }
+				  ```
+				- type 代表业务场景或功能,比如k线,行情,通知等
+				- operation 代表操作,比如订阅,取消订阅
+				- body 代表消息的具体参数
+- ## 消息队列
+	- 根据应用场景,如果长连接推送的数据都为行情价格等即时性高的数据,且不需要保存历史消息,则考虑使用Redis Stream的方案,使用Xread单协程消费或XreadGroup多协程消费,然后定时修剪过时数据,否则建议使用其他Kafka等类似的消息队列
+- ## 高并发优化
+	- ### 热点路径:
+		- 在高并发的情况下,热点路径代码在队列消费的位置,因为所有的消息,都会被所有的节点消费,节点中是否开启多线程消费不是最重要的,应该首先解决 取出消息,处理消息,发送消息给客户端 整条路径的单次处理时间,否则在高并发下,会导致雪崩效应,通过pprof等工具进行优化
+	- ### 长连接读写缓冲区
+		- 因为集群和业务服务端消息交互非常频繁,所以业务服务端的读写缓冲区应该大一些,其他用户端的读写缓冲区根据应用场景适当调整
+	- ### 降低协程数量
+		- 每个长连接最多对应一个持久协程,应为当高并发时,会导致协程数量成倍增长,增大协程上下文切换开销和内存占用
+	- ### 降低网络io
+		- 长连接传输的消息启用压缩算法,,降低带宽消耗,但是可能会提升cpu消耗,但是该系统的主要瓶颈是在内存方面
+	- ### sync.Pool复用
+		- 使用sync.Pool对高频临时对象进行复用,降低gc压力和内存占用
+	- ### 操作系统层面
+		- WebSocket服务需要为每个连接分配一个文件描述符,默认情况下，操作系统对文件描述符的数量有限制，可能会导致连接数达到上限时无法创建新连接。
+		- TCP相关参数优化: 如TCP连接队列大小,启用TCP快速打开,加快TIME_WAIT状态的回收,TCP拥塞控制算法
+		- 内存管理: 优化内存分配和回收策略可以减少内存碎片和延迟
+- ## 分布式部署
+	- 当每个服务启动时,使用redis set 动态生成节点ID,确保节点ID唯一,节点ID用于雪花算法为每个连接生成唯一的连接ID
+	- 使用istio进行基于已连接数量的负载均衡,关键配置如下
+		  ```yaml
+		  apiVersion: networking.istio.io/v1
+		  kind: DestinationRule
+		  metadata:
+		    name: ws-cluster-dr
+		  spec:
+		    host: ws-cluster-service
+		    subsets:
+		    - name: v1
+		      labels:
+		        app: ws-cluster
+		        version: v1
+		    trafficPolicy:
+		      connectionPool:
+		        http:
+		          http1MaxPendingRequests: 10000
+		          idleTimeout: 30m  # HTTP/1.1 连接空闲超时
+		        tcp:
+		          idleTimeout: 1h  # 设置连接空闲超时
+		      loadBalancer:
+		        simple: LEAST_CONN
+		  ```
+	- 使用prometheus配合grafana抓取关键指标
+		- ws总连接数量
+		- ws每个pod的连接数量
+		- 消息队列写入消息数量和每个pod消费数量
+		- 每个pod的消息平均消费时间
+- ## 压测结果
+	- 压测场景:
+		- 用户端建立连接后,会订阅交易对价格,业务服务端会以每秒一条消息的速度向所有用户端推送消息
+	- ### 单机情况
+		- 在4c8g的服务器上,使用腾讯云压测,最终压测结果为15w长连接同时在线,因为时间关系,内存占用还有部分优化的空间
+	- ### 分布式部署
+		- 典型情况下,k8s部署会有一定的性能损失,约为10%左右,优先使用高性能CNI插件,在压测时密切关注整个链路涉及的组件性能是否达到瓶颈,使用3个4c8g的工作节点,压测结果为36w左右
