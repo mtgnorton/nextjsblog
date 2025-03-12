@@ -2,11 +2,11 @@
 	- 使用 `github.com/pkg/errors` 替代原生的errors包,它在错误包装、堆栈追踪和上下文传递方面更具优势,比如使用`errors.New`方法时,使用`fmt.Print("%+v",err)`打印错误时,可以打印错误位置的堆栈信息
 	- ### 包含方法
 		- `New(message string)`: 创建一个包含给定消息的新错误,包含堆栈信息。
-		- `Errorf(format string, args ...interface{}): 创建一个带格式化消息的新错误。
+		- `Errorf(format string, args ...interface{})`: 创建一个带格式化消息的新错误。
 		- `Wrap(err error, message string)`: 在原始错误外包装新消息堆栈信息。
-		- `Wrapf(err error, format string, args ...interface{}): 在原始错误外包装格式化消息和堆栈信息。
+		- `Wrapf(err error, format string, args ...interface{})`: 在原始错误外包装格式化消息和堆栈信息。
 		- `WithMessage(err error, message string)`: 只添加新消息而不添加堆栈信息。
-		- `WithMessagef(err error, format string, args ...interface{}): 只添加格式化新消息而不添加堆栈信息。
+		- `WithMessagef(err error, format string, args ...interface{})`: 只添加格式化新消息而不添加堆栈信息。
 		- `WithStack(err error)`: 只添加堆栈信息而不添加新消息。
 		- `Cause(err error)`: 获取错误链中最原始的错误。
 		- `Unwrap(err error)`: 返回被包装的内部错误。
