@@ -1,7 +1,5 @@
-'use client';
-
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+// import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 
 // Map of links to display in the side navigation.
@@ -15,7 +13,7 @@ const links = [
 ];
 
 export default function NavLinks() {
-  const pathname = usePathname();
+  // const pathname = usePathname();
 
   return (
     <>
@@ -26,9 +24,6 @@ export default function NavLinks() {
             href={link.href}
             className={clsx(
               'text-link border-b-underline border-b-2 hover:text-hover',
-              {
-                'text-visited': pathname === link.href,
-              }
             )}
           >
             <p className="">{link.name}</p>
