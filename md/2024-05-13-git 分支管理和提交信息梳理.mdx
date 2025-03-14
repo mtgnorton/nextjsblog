@@ -1,0 +1,83 @@
+## 分支管理
+	- ### 基础:
+		- 远程固定分支Master分支和Dev分支,Master分支对应生产环境,Dev分支对应测试环境,所以对Master和Dev分支的代码提交全部基于PR
+	- ### 功能开发:
+		- 所有的Feature分支基于Dev分支Checkout,开发完成后提交PR,如果被打回,本地修正代码,重新PR,重复修正直到可以提交,提交后删除Feature分支,更新本地Dev分支
+		- 如果开发的Feature B 依赖于Feature A,则基于Feature A Checkout
+		- 功能需要原子化提交,一个功能不能分开多次提交,如果本地有多次提交合并后再进行PR
+	- ### Bug修复
+		- 如果是Master有Bug需要修复,通过Master分支Checkout出Hotfix-Master 分支,完成修复后,将Hotfix-Master 分支合并到Master分支和Dev分支
+		- Master分支合并Hotfix分支后,发布时需要打上Tag,增加小版本号
+	- ### 冲突解决
+		- 举例: 如果是基于Dev分支的Feature分支,在本地拉取最新的Dev代码,切换到Feature分支,将Dev分支合并到Feature分支,在本地解决冲突后,重新提交PR
+	- ### 发布
+		- 充分测试后准备发版,创建Release分支,此时Dev分支可以继续合并迭代其他Feature,处理发布前的工作,比如App上架,发布前的工作完成后,Release分支合并到Master分支,并在Master分支打上Tag,Release分支删除
+		- 如果Release分支发现Bug,创建Hotfix-Release 分支,分别合并到Release分支和Dev分支, 并在Dev分支进行测试
+	- ### 标准流程
+		- 从Dev分支Checkout 出 Feature A,
+		- Feature A开发完成后,提交PR,合并进Dev分支,远程仓库中的Feature A 分支删除
+		- 测试环境进行测试,发现问题,从Dev分支 Checkout 出 Hotfix A 分支,进行Bug修复,完成后合并进Dev分支,删除远程仓库中Hotfix A分支
+		- 循环开发其他Feature,修复Bug
+		- 此时如果有一些Feature不在下次发版中,不要合并进Dev分支
+		- 充分测试后创建Release分支,并最终合并到Master分支
+- ## 提交注释
+	- ### 格式
+	  ```
+	  <type>(<scope>): <subject>
+	  ```
+	- type: 标识提交类型, scope: 标识提交影响范围, subject: 提交描述
+	- ### type
+		- fix: 修复Bug
+			- 例如:
+				- `fix(net/ghttp):check parameter existence to determine using default or front-end value. (#4182)`
+		- feat: 新增功能
+			- 例如:
+				- `feat: 新增用户个人中心页面`
+				- `feat(net/ghttp): add Request.GetMetaTag to retrieve specific meta tag value (#4185)`
+		- chore: 维护性任务（非功能/非修复）和 代码格式调整
+			- 依赖管理：安装、升级或移除依赖库
+			- 构建工具配置：修改构建脚本或配置文件（如 .gitignore、Dockerfile、Makefile）
+			- 自动化任务：调整 CI/CD 流水线、代码格式化工具配置等
+			- 代码格式化：调整缩进、空格、换行符
+			- 命名规范：变量、函数名风格统一（如 user_id → userID）
+			- 自动格式化工具产生的变更
+			- 例如:
+				- `chore: 更新项目依赖包版本`
+				- `chore(user):  同一变量命名`
+		- docs: 文档变更,仅修改文档或注释
+			- 更新 API 文档
+			- 修正 README 中的错误描述
+			- 添加代码注释说明复杂逻辑
+			- 例如:
+				- `docs: 更新API接口文档`
+		- refactor: 代码重构
+			- 优化代码结构，不改变外部行为
+			- 拆分臃肿函数为多个子函数
+			- 设计模式优化
+			- 例如:
+				- `refactor: 优化用户认证模块的代码结构`
+		- debug: 调试相关变更
+			- 临时添加调试代码或日志
+			- 添加调试日志以排查问题
+			- 临时修改配置以定位bug
+			- 例如:
+				- `debug: 添加调试日志以排查支付失败问题`
+		- test: 测试相关变更
+			- 为新功能添加单元测试
+			- 修复测试用例中的错误
+			- 增加测试覆盖率
+			- 例如:
+				- `test: 添加用户注册功能的单元测试`
+		- revert: 回滚提交
+			- 回滚导致系统崩溃的提交
+			- 撤销未通过测试的代码
+			- 例如:
+				- `revert: 回滚提交 abcdefg（修复订单重复创建）`
+	- ### scope
+		- 描述: 标识提交的影响范围,通常是模块
+		- 可选,如果影响全局,则可以不填写
+		- 例如:
+			- `feat(contrib/metric/otelmetric): add metrics option WithExemplarFilter support (#4061)`
+	- ### subject
+		- 描述: 简短描述提交内容,不超过50个字符
+		- 使用如"添加", "修复", "优化"等准确动词,避免使用"更新"等模糊词汇,应具体描述变更内容

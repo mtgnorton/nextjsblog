@@ -1,0 +1,207 @@
+- ## `github.com/pkg/errors`
+	- 使用 `github.com/pkg/errors` 替代原生的errors包,它在错误包装、堆栈追踪和上下文传递方面更具优势,比如使用`errors.New`方法时,使用`fmt.Print("%+v",err)`打印错误时,可以打印错误位置的堆栈信息
+	- ### 包含方法
+		- `New(message string)`: 创建一个包含给定消息的新错误,包含堆栈信息。
+		- `Errorf(format string, args ...interface{})`: 创建一个带格式化消息的新错误。
+		- `Wrap(err error, message string)`: 在原始错误外包装新消息堆栈信息。
+		- `Wrapf(err error, format string, args ...interface{})`: 在原始错误外包装格式化消息和堆栈信息。
+		- `WithMessage(err error, message string)`: 只添加新消息而不添加堆栈信息。
+		- `WithMessagef(err error, format string, args ...interface{})`: 只添加格式化新消息而不添加堆栈信息。
+		- `WithStack(err error)`: 只添加堆栈信息而不添加新消息。
+		- `Cause(err error)`: 获取错误链中最原始的错误。
+		- `Unwrap(err error)`: 返回被包装的内部错误。
+		- `Is(err, target error)`: 检查错误链中是否包含目标错误值,类似于等于。
+		- `As(err error, target interface{})`: 检查错误链中是否有错误的类型为target类型,如果有将该错误赋值给target,并返回true。
+		- `Format(s fmt.State, verb rune)`: 根据不同的格式化动词（%s、%v、%+v）打印错误信息。
+- ## 声明错误
+	- 声明错误有一下几种方式
+	- ### 动态`errors.New`
+		- 简单错误
+		- 不需要额外的上下文信息
+		- 调用方不需要检查错误
+		- 例如:
+		  ```go
+		   func readFile(path string) ([]byte, error) {
+		       if path == "" {
+		           return nil, errors.New("文件路径不能为空")
+		       }
+		   }
+		  ```
+	- ### 预定义`errors.New`
+		- 简单错误
+		- 调用需要检查错误
+		- 例如:
+		  ```go
+		   var ErrFileNotFound = errors.New("文件未找到")
+		   func readFile(path string) ([]byte, error) {
+		       if path == "" {
+		           return nil, ErrFileNotFound
+		       }
+		  ```
+	- ### `fmt.Errorf`
+		- 需要额外上下文信息
+		- 调用方不需要检查错误
+		- 例如:
+		  ```go
+		   func readFile(path string) ([]byte, error) {
+		       if path == "" {
+		           return nil, fmt.Errorf("文件路径: %s 不能为空", path)
+		       }
+		  ```
+	- ### `自定义错误`
+		- 需要额外上下文信息
+		- 调用方需要检查错误
+		- 例如:
+		  ```go
+		   type ErrFileNotFound struct {
+		       Path string
+		   }
+		   func (e *ErrFileNotFound) Error() string {
+		       return fmt.Sprintf("文件路径: %s 未找到", e.Path)
+		   }
+		   func readFile(path string) ([]byte, error) {
+		       if path == "" {
+		           return nil, &ErrFileNotFound{Path: path}
+		       }
+		   }
+		  ```
+		- ### 最佳实践
+			- 根据上方是否需要额外信息和调用方是否需要检查错误,来对号入座
+- ## 错误传递
+	- 为了保证错误信息简洁,且能追踪错误堆栈,原则如下
+		- 根错误
+			- 需要额外上下文信息,使用`errrors.Wrap/Wrapf`
+			- 否则使用`errrors.WithStack`
+		- 中间传递
+			- 需要额外上下文信息,使用`errros.WithMessage/WithMessagef`
+			- 否则直接return错误
+		- 调用方打印
+			- 调用方使用`Printf("%+v",err)`打印
+	-
+	  ```go
+	  // 有一个文件,存储了用户名:年龄:地址, 每行一条记录, 要求传入用户名,获取该用户的信息
+	  
+	  func TestGetUserInfo(t *testing.T) {
+	  	userInfo, err := getUserInfo("张三", "./user.txt")
+	  	if err != nil {
+	  		fmt.Printf("get user info : %+v\n", err)
+	  		return
+	  	}
+	  	fmt.Printf("user info: %v\n", userInfo)
+	  }
+	  
+	  func getUserInfo(name string, filePath string) ([]string, error) {
+	  	lines, err := readFile(filePath)
+	  	if err != nil {
+	  		return nil, errors.WithMessagef(err, "readFile,name:%s", name)
+	  	}
+	  	for _, line := range lines {
+	  		if strings.Contains(line, name) {
+	  			userInfo := strings.Split(line, ":")
+	  			if len(userInfo) != 3 {
+	  				return nil, errors.Errorf("split,username: %s,line: %s", name, line)
+	  			}
+	  			return userInfo, nil
+	  		}
+	  	}
+	  	return nil, errors.New("not found")
+	  }
+	  
+	  func readFile(path string) ([]string, error) {
+	  	file, err := os.Open(path)
+	  	if err != nil {
+	  		return nil, errors.WithStack(err)
+	  	}
+	  	defer file.Close()
+	  
+	  	reader := bufio.NewReader(file)
+	  	lines := []string{}
+	  	for {
+	  		line, err := reader.ReadString('\n')
+	  		if err != nil {
+	  			return nil, errors.Wrapf(err, "read file")
+	  		}
+	  		lines = append(lines, strings.TrimSpace(line))
+	  	}
+	  	return lines, nil
+	  }
+	  ```
+		- 使用`fmt.Printf("get user info error: %v\n", err)` 输出如下,错误由外层到内层
+			-
+			  ```
+			  get user info error: readFile,name:张三: open ./user.txt: no such file or directory
+			  ```
+		- 使用`fmt.Printf("get user info error: %+v\n", err)` 输出如下,错误由内层到外层
+		  ```
+		  get user info error: open ./user.txt: no such file or directory
+		  wikitrade-business-api/common/kit.readFile
+		          /Users/mtgnorton/Coding/go/src/github.com/mtgnorton/api-wikitrade-saas/common/kit/map_test.go:113
+		  wikitrade-business-api/common/kit.getUserInfo
+		          /Users/mtgnorton/Coding/go/src/github.com/mtgnorton/api-wikitrade-saas/common/kit/map_test.go:94
+		  wikitrade-business-api/common/kit.TestGetUserInfo
+		          /Users/mtgnorton/Coding/go/src/github.com/mtgnorton/api-wikitrade-saas/common/kit/map_test.go:85
+		  testing.tRunner
+		          /Users/mtgnorton/.g/go/src/testing/testing.go:1690
+		  runtime.goexit
+		          /Users/mtgnorton/.g/go/src/runtime/asm_arm64.s:1223
+		  readFile,name:张三
+		  ```
+		- #### 最佳实践
+			- 消息为正在执行的操作,使用自然语言描述
+			- 只包含该层的相关参数
+			- 保持简洁,不需要在消息里面添加error关键词,否则error会出现很多次,造成冗余
+			- 举例
+				- 如在上例中` errors.WithMessagef(err, "readFile,name:%s", name)`
+				- 反例1:
+					- `errors.Wrapf(err, "getUserInfo readFile error ,name:%s", name)`, getUserInfo应该在上一层调用中体现,且error冗余
+				- 反例2:
+					- ` errors.WithMessagef(err, "readFile ,name:%s,path:%s", name,path)`, path 应该由下层包含,不应该在本层包含
+- ## 判断错误
+	- 判断错误有以下几种方式
+	- ### 等号判断
+		- 适用于错误未被包装且是预定义错误的方式
+		- 例如:
+		  ```go
+		   var ErrFileNotFound = errors.New("文件未找到")
+		   func readFile(path string) ([]byte, error) {
+		       if path == "" {
+		           return nil, ErrFileNotFound
+		       }
+		       // 继续处理...
+		   }
+		   func main() {
+		       err := readFile("")
+		       if err == ErrFileNotFound {
+		           fmt.Println("文件未找到")
+		       }
+		   }
+		  ```
+	- ### 断言
+		- 适用于错误未被包装且是预定义错误的方式
+		- 例如:
+		  ```go
+		   type ErrFileNotFound struct {
+		   Path string
+		   }
+		   func (e *ErrFileNotFound) Error() string {
+		   return fmt.Sprintf("文件路径: %s 未找到", e.Path)
+		   }
+		   func readFile(path string) ([]byte, error) {
+		   if path == "" {
+		   	return nil, &ErrFileNotFound{Path: path}
+		   }
+		   // 继续处理...
+		   }
+		   func main() {
+		   err := readFile("")
+		   if err, ok := err.(*ErrFileNotFound); ok {
+		   	fmt.Println("文件未找到:", err.Path)
+		   }
+		   }
+		  ```
+	- ### `errors.Is`
+		- 适用于错误被包装且是预定义错误的方式
+	- ### `errrors.As`
+		- 适用于错误被包装且已知错误类型的方式
+	- #### 最佳实践
+		- 预定义的错误使用`errors.Is`判断,否则使用`errrors.As`判断
