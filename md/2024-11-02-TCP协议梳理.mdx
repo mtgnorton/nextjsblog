@@ -395,6 +395,40 @@
 			- 客户端不会立即察觉到,重发几次数据后会遇到ETIMEOUT错误。
 		- #### 服务端不可达
 			- 客户端不会立即察觉到,重发几次数据后会遇到EHOSTUNREACH错误。
+- ## 客户端连接常见错误
+	- ####  Connection Refused (ECONNREFUSED)
+		- 客户端收到 connection refused 错误
+		- 可能的原因:
+			- 服务器端口未监听
+			- 服务器防火墙拦截
+	- #### Connection Reset (ECONNRESET)
+		- 客户端收到connection reset by peer 错误
+		- 可能的原因:
+			- 对端服务崩溃或进程终止
+			- 协议不匹配
+			- 对端防火墙或中间代理等拦截
+			- 端口未监听
+			- 应用层主动拒绝连接
+	- #### Connection Timeout (ETIMEDOUT)
+		- 客户端长时间等待后超时
+		- 可能的原因:
+			- 网络路由问题（如中间链路不通）
+			- 目标主机未响应（如被防火墙静默丢弃）
+	- #### No Route to Host (ENETUNREACH)
+		- 客户端收到 no route to host 错误
+		- 可能的原因:
+			- 客户端到目标主机无有效路由
+			- 目标IP不存在或网卡配置错误	
+	- #### Connection Reset by Peer (ECONNRESET)
+		- 读取数据时收到 RST 标志
+		- 可能的原因:
+			- 对端非优雅关闭（如进程崩溃或强制终止）
+			- 协议不匹配（如HTTP客户端连接HTTPS端口）
+	- #### Broken Pipe (EPIPE)
+		- 写入数据时连接已关闭
+		- 可能的原因:
+			- 对端提前关闭连接（如服务崩溃或主动断开）
+
 - ## 其他
 	- ### TCP"粘包"
 		- "粘包"指的是如客户端发送了n次小的数据包,TCP将其合并到了一个TCP段中发送,这就是粘包,"粘包"是应用层协议需要解决的问题
