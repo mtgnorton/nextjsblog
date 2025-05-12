@@ -8,11 +8,11 @@ import Title from "@/app/ui/components/title";
 import Footer from "@/app/ui/components/footer";
 export const metadata: Metadata = {
   title: {
-    template: '%s | Blog',
+    template: '%s',
     default: 'Blog',
   },
   description: "It's mtgnorton's blog",
-  metadataBase: new URL('https://mtgnorton.cn'),
+  metadataBase: new URL('https://blog.mtgnorton.site'),
 };
 
 export default function RootLayout({
