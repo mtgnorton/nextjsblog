@@ -1,0 +1,57 @@
+## addr字段
+```golang
+type Builder struct {
+	addr *Builder
+	buf []byte
+}
+func (b *Builder) copyCheck() {
+	if b.addr == nil {
+		// 这个hack是为了解决Go的逃逸分析的一个缺陷
+		// 该缺陷导致b逃逸并被分配到堆上
+		// 参见issue 23382
+		// TODO: 一旦issue 7921修复，这段代码应该改回简单的
+		// "b.addr = b"
+		b.addr = (*Builder)(abi.NoEscape(unsafe.Pointer(b)))
+	} else if b.addr != b {
+		panic("strings: illegal use of non-zero Builder copied by value")
+	}
+}
+```
+- addr 字段的主要作用是检测 strings.Builder 实例是否被意外复制。strings.Builder 被设计为不能被安全地复制。如果复制了一个 Builder，那么原始对象和副本将共享同一个底层的字节切片 (buf)。这会导致不可预测的行为和数据竞争，因为对一个副本的修改会影响到另一个。
+
+- 产生内存逃逸的原因是这个实例内部现在持有了对自身的引用，编译器很难简单地证明这个实例的生命周期仅限于当前函数。它创建了一个引用循环（尽管只是自引用）,面对这种不确定性，编译器会做出最安全的选择,即将addr分配到堆上
+`abi.NoEscape(...)`: 这是一个编译器指令，它告诉编译器，尽管我们获取了指针，但这个指针不会“逃逸”，从而确保 b 可以继续留在栈上分配。,为了使用该方法,所以需要进行两次类型转换
+
+## grow
+```golang
+func (b *Builder) grow(n int) {
+	buf := bytealg.MakeNoZero(2*cap(b.buf) + n)[:len(b.buf)]
+	copy(buf, b.buf)
+	b.buf = buf
+}
+```
+使用`bytealg.MakeNoZero`不使用`make`的原因如下:
+- go运行时对于make操作会分为两步,而`bytealg.MakeNoZero`只执行第一步,不会清零内存,`bytealg.MakeNoZero`为内部包,不会被外部调用
+    1. 在堆上分配一块足够大的内存空间
+    2. 清零内存（Zeroing）：这是最关键的一步。Go 语言保证，通过 make 创建的切片，其所有元素都会被初始化为其类型的零值。对于 byte 类型来说，零值就是 0。这意味着分配出的这块内存中的每一个字节都会被设置为 0x00。
+
+## String()
+```golang
+func (b *Builder) String() string {
+	return unsafe.String(unsafe.SliceData(b.buf), len(b.buf))
+}
+```
+- 零拷贝优化
+
+    在 Go 语言中，通常使用 string(mySlice) 将一个字节切片转换为字符串。这个标准操作会创建一个数据的副本：Go 会为新字符串分配一块独立的内存，然后将切片中的字节逐一复制到新内存中。这是一个安全措施，用以保证 Go 中字符串的不可变性（immutable）。而 strings.Builder 的 String() 方法绕过了这个过程。它不复制任何字节，而是直接创建一个新的 string 标头（string header），让这个标头指向 Builder 内部字节切片 (b.buf) 所使用的同一块底层内存。这种方式避免了潜在的大内存分配和耗时的数据拷贝，使得转换速度极快。
+- 代码分析
+    - unsafe.SliceData(b.buf)：此函数获取一个指向 b.buf 这个切片底层数组的直接指针。它返回一个 *byte 类型的值，该值指向数据的第一个字节，同时剥离了切片自身的标头信息（长度和容量）。
+    - len(b.buf)：这个操作很简单，就是获取已经写入到 Builder 中的字节数。这个数字将成为最终字符串的长度。
+    - unsafe.String(...)：这是最关键的函数。它接收一个字节指针和一个长度，并利用它们来“组装”成一个 string 类型的值。最终生成的字符串，其数据指针就是第 1 步得到的指针，其长度就是第 2 步得到的长度。
+
+
+
+
+
+
+

@@ -1,0 +1,318 @@
+## WithValue 
+```go
+// 官方代码
+func (c *valueCtx) Value(key any) any {
+    if c.key == key {
+    return c.val
+    }
+    return value(c.Context, key)
+}
+
+func value(c Context, key any) any {
+    for {
+    switch ctx := c.(type) {
+    case *valueCtx:
+        if key == ctx.key {
+            return ctx.val
+        }
+        c = ctx.Context
+    // 省略代码
+    case backgroundCtx, todoCtx:
+        return nil
+    default:
+        return c.Value(key)
+    }
+    }
+}
+```
+
+1. 为什么`Value()`不直接返回`c.Context.Value(key)`
+相对于下方代码,下方代码虽然直观但是低效,当context的调用链路很长时,会发生一连串的接口方法调用,在 Go 中，接口调用`c.Context.Value(key)`比直接调用具体类型的方法或者直接访问字段要慢，因为它需要运行时进行类型查找和方法分发（类似于其他语言的虚方法调用）。value 函数通过一个 for 循环和 switch 类型断言，将“沿着链条向上查找”的过程内联了
+    ```go
+    // 相对于
+    func (c *valueCtx) Value(key any) any {
+        if c.key == key {
+        return c.val
+        }
+        // 每次都通过接口调用父节点的 Value 方法
+        return c.Context.Value(key)
+    }
+    ```
+2. 官方代码中的value函数的default分支的逻辑
+当 value 函数在遍历过程中，遇到了一个它不认识的自定义 Context 类型，它就会“降级”为标准的接口调用，去调用那个自定义类型的 Value 方法。这保证了 context 体系的开放性和扩展性：
+    - 对于官方的 Context 类型，我们走快速路径（for 循环和类型断言）。
+    - 对于第三方的 Context 类型，我们走兼容路径（标准的接口调用）。
+
+
+## WithCancel
+```go
+type cancelCtx struct {
+	Context
+
+	mu       sync.Mutex            // protects following fields
+	done     atomic.Value          // of chan struct{}, created lazily, closed by first cancel call
+	children map[canceler]struct{} // set to nil by the first cancel call
+	err      error                 // set to non-nil by the first cancel call
+	cause    error                 // set to non-nil by the first cancel call
+}
+
+func (c *cancelCtx) Done() <-chan struct{} {
+	d := c.done.Load()
+	if d != nil {
+		return d.(chan struct{})
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	d = c.done.Load()
+	if d == nil {
+		d = make(chan struct{})
+		c.done.Store(d)
+	}
+	return d.(chan struct{})
+}
+```
+1. Done 为何使用 atomic.Value
+    - Done() 方法可能会被频繁调用（例如在 select 循环中),而取消操作（写入）只会发生一次,使用 atomic.Value 可以让读取操作（Load）完全无锁，速度极快,只有在第一次调用 Done()（需要创建 channel）和取消时（需要关闭 channel）才需要加锁，实现了高效的读写分离。
+    - 采用惰性初始化（Lazy Initialization），只有在第一次调用 Done() 时才会真正创建 channel，节省了开销
+
+2. canceler 为什么可以作为children的key
+    - Go 语言规范规定，能够作为 map key 的类型必须是可比较的 (comparable)。
+        - 可比较的类型包括：布尔型、数字、字符串、指针、Channel、接口类型、以及只包含可比较字段的结构体和数组。
+        - 不可比较的类型包括：切片 (slice)、map、函数。
+    - 在 Go 的内部实现中，一个接口变量实际上是一个包含两个指针的结构：
+        - 动态类型 (Dynamic Type): 指向该接口变量底层存储的具体类型信息（例如，*cancelCtx 或 *timerCtx）。
+        - 动态值 (Dynamic Value): 指向该接口变量底层存储的具体值（例如，某个 *cancelCtx 实例的内存地址）。
+    当且仅当两个接口变量的动态类型和动态值都完全相同时，它们才被认为是相等的。
+    
+
+
+
+
+
+
+
+
+```go
+
+// &cancelCtxKey is the key that a cancelCtx returns itself for.
+var cancelCtxKey int
+
+// Cause 返回一个非空的错误，解释为什么 c 被取消。
+// c 或其父级的第一次取消操作会设置 cause。
+// 如果该取消操作是通过调用 CancelCauseFunc(err) 发生的，
+// 那么 [Cause] 返回 err。
+// 否则 Cause(c) 返回与 c.Err() 相同的值。
+// 如果 c 尚未被取消，则 Cause 返回 nil。
+func Cause(c Context) error {
+	if cc, ok := c.Value(&cancelCtxKey).(*cancelCtx); ok {
+		cc.mu.Lock()
+		defer cc.mu.Unlock()
+		return cc.cause
+	}
+	// 没有 cancelCtxKey 值，所以我们知道 c 不是
+	// 由 WithCancelCause 创建的某个 Context 的后代。
+	// 因此，没有特定的 cause 可以返回。
+	// 如果这不是标准 Context 类型之一，
+	// 它可能仍然有错误，尽管它不会有 cause。
+	return c.Err()
+}
+func value(c Context, key any) any {
+    for {
+       switch ctx := c.(type) {
+       // ...
+       case *cancelCtx:
+          if key == &cancelCtxKey {
+             return c // 看这里！它返回了 *cancelCtx 实例自身！
+          }
+          c = ctx.Context
+       // ...
+       }
+    }
+}
+```
+1. 为什么使用 `&cancelCtxKey` 作为 key
+    - **保证键的绝对唯一性**
+    `Context` 的 WithValue 功能允许用户存储任意 `interface{}` 类型的键和值,如果使用普通字符串作为key,比如`ctx.Value("cancel_context_key")`,万一用户也在自己的代码里使用了 `"cancel_context_key"` 这个字符串作为键存入了自己的数据，`context` 内部的逻辑就可能被破坏，或者用户的数据会被意外覆盖或获取。
+    `cancelCtxKey` 是一个包级私有变量,用它的地址 `&cancelCtxKey` 作为 Key。这个 Key 的类型是 `*int`,因为外部包根本拿不到 `cancelCtxKey` 这个变量，所以它们永远无法创建出另一个值等于 `&cancelCtxKey` 的 Key。这就从根本上保证了这个内部 Key 在整个程序中的绝对唯一性，完美地避免了键冲突的风险。什么是 int 类型,其实什么类型都可以，比如 `struct{}`
+
+    - **作为内部机制的“后门”**
+    像 `context.Cause(ctx)` 这样的函数，需要找到 `ctx` 背后链条中真正的 `*cancelCtx` 实例，以便访问其内部的 cause 字段。但是，传给 Cause 函数的 `ctx` 是一个 `context.Context` 接口，它可能经过了多层包装，例如：
+        ```go
+        ctx = WithValue(WithValue(WithCancel(parent), key1, val1), key2, val2)
+        ```
+        在这个例子中，`ctx` 的具体类型是 `*valueCtx`，它的父节点是另一个 `*valueCtx`，再往上才是我们想找的 `*cancelCtx`。我们无法通过简单的类型断言 `ctx.(*cancelCtx)` 来获取它。        **怎么办？利用 Value 机制反向查找！**,但是不是典型的设置取值的过程,而是一种针对`cancelCtx`的硬编码,`cancelCtx`结构体中是没有key,val等相关字段的，它让 `*cancelCtx` 在实现 Value 方法时，对 `&cancelCtxKey` 这个特殊的键做出响应。
+        
+```go
+// parentCancelCtx 返回 parent 对应的底层 *cancelCtx 实例。
+// 它通过查找 parent.Value(&cancelCtxKey) 来定位最内层的 *cancelCtx，
+// 然后检查 parent.Done() 返回的 channel 是否与该 *cancelCtx 的 done channel 相同。
+// 如果不同，说明该 *cancelCtx 被自定义实现包裹，提供了不同的 done channel，
+// 此时不应直接跳过自定义实现。
+func parentCancelCtx(parent Context) (*cancelCtx, bool) {
+	done := parent.Done()
+	if done == closedchan || done == nil {
+		return nil, false
+	}
+	p, ok := parent.Value(&cancelCtxKey).(*cancelCtx)
+	if !ok {
+		return nil, false
+	}
+	pdone, _ := p.done.Load().(chan struct{})
+	if pdone != done {
+		return nil, false
+	}
+	return p, true
+}
+
+// propagateCancel arranges for child to be canceled when parent is.
+// It sets the parent context of cancelCtx.
+func (c *cancelCtx) propagateCancel(parent Context, child canceler) {
+	c.Context = parent
+
+	done := parent.Done()
+	if done == nil {
+		return // parent is never canceled
+	}
+
+	select {
+	case <-done:
+		// parent is already canceled
+		child.cancel(false, parent.Err(), Cause(parent))
+		return
+	default:
+	}
+
+	if p, ok := parentCancelCtx(parent); ok {
+		// parent is a *cancelCtx, or derives from one.
+		p.mu.Lock()
+		if p.err != nil {
+			// parent has already been canceled
+			child.cancel(false, p.err, p.cause)
+		} else {
+			if p.children == nil {
+				p.children = make(map[canceler]struct{})
+			}
+			p.children[child] = struct{}{}
+		}
+		p.mu.Unlock()
+		return
+	}
+    // 省略代码
+	goroutines.Add(1)
+	go func() {
+		select {
+		case <-parent.Done():
+			child.cancel(false, parent.Err(), Cause(parent))
+		case <-child.Done():
+		}
+	}()
+}
+func (a *afterFuncCtx) cancel(removeFromParent bool, err, cause error) {
+	// 省略代码
+    if removeFromParent {
+       removeChild(a.Context, a)
+    }
+	// 省略代码
+}
+func removeChild(parent Context, child canceler) {
+	// 省略代码
+	if p.children != nil {
+		delete(p.children, child)
+	}
+	// 省略代码
+}
+```
+1. 为什么`parentCancelCtx`需要检查`parent.Done()`和`p.done.Load()`是否相同
+    - 如果两个 channel 地址相同,说明parent只是对p的包装,p是真正的cancelCtx实例,否则说明在 parent 和它内部的 p 之间，存在一个自定义的 Context 实现，这个实现重写了 Done() 方法，返回了一个全新的 channel。
+    - 在`propagateCancel`函数中,有一个优化路径（快速路径）和一个安全路径（慢速路径）。快速路径会将child直接挂载到p的children中,慢速路径会启动一个goroutine来监听parent的Done()和child的Done()。如果不检查`parent.Done()`和`p.done.Load()`是否相同,会导致自定义的Context实现被跳过
+2. 为什么`propagateCancel`中调用cancel时,传入的都是false
+	- 在 propagateCancel 函数中，由父节点取消而触发的子节点取消，调用的总是 child.cancel(false, ...)，其中的 false 参数（代表 removeFromParent）是刻意为之。
+	- 核心目的：避免死锁，并保持清晰的职责分离。
+		- 避免死锁：父节点的 cancel 方法在持有自身锁的情况下，会遍历并调用子节点的 cancel 方法。如果此时子节点被允许尝试移除自己（removeFromParent 为 true），它就需要去获取父节点的锁，从而导致子节点等待父节点，父节点等待子节点的经典死锁场景。
+		- 职责分离
+			- 父节点的 cancel 方法：负责在自己被取消时，批量清理掉所有子节点的引用（通过 p.children = nil）。这是一个“自上而下”的、全面的清理。
+			- 用户手中的 cancel 函数：负责在子节点对应的任务提前完成时，单独清理掉这一个子节点与父节点的链接（通过 cancel(true, ...)）。这是一个“自下而上”的、精确的清理，目的是为了防止内存泄漏。
+			- propagateCancel 所代表的“因父节点取消而导致的子节点取消”，属于第一种情况的范畴。清理工作应该由父节点的 cancel 方法统一负责，子节点不应越俎代庖。
+
+
+## WithDeadline和WithTimeout
+
+
+
+## AfterFunc
+AfterFunc(ctx,f) 只有在 ctx 被取消（超时或手动 cancel）后才会触发,如果想阻止f函数执行,需要手动调用stop函数,如果stop返回true,说明阻止成功,否则说明f函数已经执行了
+
+```go
+func (a *afterFuncCtx) cancel(removeFromParent bool, err, cause error) {
+    a.cancelCtx.cancel(false, err, cause) // 首先，执行标准的取消逻辑
+    if removeFromParent {
+       removeChild(a.Context, a)
+    }
+    // 然后，执行自己的特殊逻辑
+    a.once.Do(func() {
+       go a.f() // 在一个新的 goroutine 中执行用户的函数 f
+    })
+}
+func AfterFunc(ctx Context, f func()) (stop func() bool) {
+	a := &afterFuncCtx{
+		f: f,
+	}
+	a.cancelCtx.propagateCancel(ctx, a)
+	return func() bool {,
+		stopped := false
+		a.once.Do(func() {
+			stopped = true
+		})
+		if stopped {
+			a.cancel(true, Canceled, nil)
+		}
+		return stopped
+	}
+}
+```
+1. 通过sync.Once 来确保执行函数f和调用stop()阻止执行只有一个会成功,并且即使stop调用多次,也只会执行一次
+2. cancel方法中removeFromParent为什么不直接在a.cancelCtx.cancel调用时通过传递true移除,而是显示调用removeChild移除
+	- 保存时的调用链为,实际在父ctx的children中存储的key为canceler接口类型,接口的动态类型动态类型: `*afterFuncCtx`
+	```go
+	type afterFuncer interface {
+		AfterFunc(func()) func() bool
+	}
+	func AfterFunc(ctx Context, f func()) (stop func() bool) {
+	a := &afterFuncCtx{
+		f: f,
+	}
+	a.cancelCtx.propagateCancel(ctx, a)
+	}
+	func (c *cancelCtx) propagateCancel(parent Context, child canceler) {
+		// 省略代码
+		p.children[child] = struct{}{
+		// 省略代码
+	}
+	```
+	- 如果通过`a.cancelCtx.cancel(true, err, cause)`移除,调用链如下,传递到removeChild方法的child为`*cancelCtx`,在进行map的delete时会因为`*cancelCtx`和`*afterFuncCtx`的动态类型不同,导致删除失败
+	```go
+	func (c *cancelCtx) cancel(removeFromParent bool, err, cause error) {
+		// 省略代码
+		if removeFromParent {
+			removeChild(c.Context, c)
+		}
+	}
+	func removeChild(ctx Context, child canceler) {
+		// 省略代码
+		if p.children != nil {
+			delete(p.children, child)
+		}
+		// 省略代码
+	}
+	```
+3. 没有某个context实现了AfterFunc,这个接口有必要么
+	它的存在不是为了被 context 包自己使用，而是为了给外部的、自定义的 Context 实现提供一个可选的“优化钩子”,如果外部的context实现了AfterFunc,那么context包会调用它的AfterFunc方法,就不需要启动goroutine监听parent的Done()
+
+
+
+
+
+
+
+
+

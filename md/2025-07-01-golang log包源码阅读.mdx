@@ -1,0 +1,154 @@
+## 关于sync.Pool
+```go
+
+var bufferPool = sync.Pool{New: func() any { return new([]byte) }}
+
+func getBuffer() *[]byte {
+	p := bufferPool.Get().(*[]byte)
+	*p = (*p)[:0]
+	return p
+}
+
+func putBuffer(p *[]byte) {
+	// sync.Pool 的正确使用要求每个条目具有大致相同的内存开销。
+	// 为了在存储的类型包含可变大小缓冲区时获得这个特性，
+	// 我们对放回池中的缓冲区设置了一个硬性的最大限制。
+	//
+	// 参考 https://go.dev/issue/23199
+	if cap(*p) > 64<<10 {
+		*p = nil
+	}
+	bufferPool.Put(p)
+}
+```
+1. 为什么syncPool使用*[]byte
+Go的函数参数传递是值拷贝以及修改切片本身的需要。[]byte 本质上是一个包含三个字段的结构体（即切片头 slice header）：
+	- 指向底层数组的指针
+	- 切片的长度（len）
+	- 切片的容量（cap）
+如果使用[]byte类型,`s = s[:0]`这个操作修改的是本地变量的s的一个拷贝,存储在syncPool里面的的那个原始的切片并没有被改变,这样会导致假设放入一个len:3,cap:10的[]byte,下次再取出来时,可能还是len:3,cap:10,这样可能造成脏数据,使用指针类型`*p = (*p)[:0]`,会直接操作存储在syncPool里面的切片,达到复用的目的
+sync.Pool 的对象存储是临时的、非持久的、分布在各个P的本地列表中的。它通过牺牲一定的命中率（GC会清空）来换取极高的存取性能和避免内存泄漏的安全性。
+	```go
+	// 错误的设计示例
+	func getBuffer_wrong() []byte {
+		// 假设池里存的是 []byte
+		s := bufferPool.Get().([]byte) 
+		s = s[:0] // 关键问题在这里！
+		return s
+	}
+	```
+
+2. 为什么syncPool使用`64<<10`
+这个检查的目的是，如果某个缓冲区在使用过程中被扩容得非常大（超过了64KB），就不应该把它放回池中。因为池中的对象应该大小相似，如果一个巨大的对象被长期保留在池中，会造成内存浪费。
+
+## 关于atomic.Pointer
+``` go
+type Logger struct {
+outMu sync.Mutex
+out   io.Writer // destination for output
+
+prefix    atomic.Pointer[string] // prefix on each line to identify the logger (but see Lmsgprefix)
+flag      atomic.Int32           // properties
+isDiscard atomic.Bool
+}
+```
+
+1. 为什么prefix使用atomic.Pointer[string]
+
+- 对于 prefix 这种高频读取的字段，使用 atomic.Pointer 的好处是：读取操作（Load）不需要加锁。 这在高并发场景下至关重要。如果使用互斥锁 (sync.Mutex)，每次打印日志都需要经历 Lock 和 Unlock 的过程。尽管 Go 的互斥锁性能很高，但在海量并发调用下，无锁的原子操作可以完全避免锁竞争，从而获得更低的延迟和更高的吞吐量。	
+
+
+## 关于output回调
+```golang
+func (l *Logger) output(pc uintptr, calldepth int, appendOutput func([]byte) []byte) error {
+}
+```
+
+1. 这里appendOutput 类型为函数有明显的好处么
+- 性能提升 —— 延迟格式化与避免内存分配
+	```go
+	// 假设的、性能低下的设计
+	func (l *Logger) Println(v ...any) {
+		// 步骤1: 无论日志是否开启，都先进行字符串格式化和内存分配
+		msgBytes := []byte(fmt.Sprintln(v...)) 
+
+		// 步骤2: 将格式化好的字节切片传递给 output
+		l.output_bad(0, 2, msgBytes) 
+	}
+
+	func (l *Logger) output_bad(pc uintptr, calldepth int, msgBytes []byte) error {
+		// 只有到了这里，才检查日志是否要被丢弃
+		if l.isDiscard.Load() {
+		return nil // 如果丢弃，前面做的 fmt.Sprintln 完全是浪费！
+		}
+		// ...
+	}
+	```
+- 灵活性与代码复用 —— 实现关注点分离
+output 方法作为一个底层的核心函数，它本身不应该关心上层是想用哪种方式来格式化日志的。它的职责应该只包括：
+	- 处理日志头（时间、文件等）
+	- 管理缓冲区 (getBuffer/putBuffer)
+	- 保证并发安全（使用 sync.Mutex）
+	- 将最终内容写入 io.Writer
+
+## 关于位掩码
+核心应用场景是通过“位掩码 (Bitmask)”来高效地处理一组开关状态或选项配置
+```golang
+
+const (
+	Ldate         = 1 << iota     // the date in the local time zone: 2009/01/23
+	Ltime                         // the time in the local time zone: 01:23:23
+	Lmicroseconds                 // microsecond resolution: 01:23:23.123123.  assumes Ltime.
+	Llongfile                     // full file name and line number: /a/b/c/d.go:23
+	Lshortfile                    // final file name element and line number: d.go:23. overrides Llongfile
+	LUTC                          // if Ldate or Ltime is set, use UTC rather than the local time zone
+	Lmsgprefix                    // move the "prefix" from the beginning of the line to before the message
+	LstdFlags     = Ldate | Ltime // initial values for the standard logger
+)
+func formatHeader(buf *[]byte, t time.Time, prefix string, flag int, file string, line int) {
+	if flag&Lmsgprefix == 0 {
+		*buf = append(*buf, prefix...)
+	}
+	if flag&(Ldate|Ltime|Lmicroseconds) != 0 {
+		if flag&LUTC != 0 {
+			t = t.UTC()
+		}
+		if flag&Ldate != 0 {
+			year, month, day := t.Date()
+			itoa(buf, year, 4)
+			*buf = append(*buf, '/')
+			itoa(buf, int(month), 2)
+			*buf = append(*buf, '/')
+			itoa(buf, day, 2)
+			*buf = append(*buf, ' ')
+		}
+		// 省略代码
+	}
+}
+```
+- | (按位或) —— “组合选项”或“开启开关”
+	```golang
+	Ldate      = 1 << 0  // 二进制: ...00000001
+	Ltime      = 1 << 1  // 二进制: ...00000010
+	Lshortfile = 1 << 4  // 二进制: ...00010000
+
+	var myFlags = Ldate | Ltime
+	//  ...00000001  (Ldate)
+	//| ...00000010  (Ltime)
+	//------------------
+	//  ...00000011  (myFlags 的值是 3)
+	// 现在，变量 myFlags 这一个整数，就同时包含了“开启日期”和“开启时间”两个信息。这就是组合选项。
+
+	```
+- & (按位与) —— “检查状态”或“判断开关是否开启”
+	```golang
+	if myFlags & Ltime != 0 {
+    // 这个条件成立
+	}
+
+	//  ...00000011  (myFlags)
+	//& ...00000010  (Ltime)
+	//------------------
+	//  ...00000010  (结果是 2，不为 0)
+	// 因为 myFlags 中代表 Ltime 的那个 bit 是 1，所以与 Ltime 进行 & 运算后，结果中对应的 bit 也是 1，最终结果不为零。这表明 Ltime 开关是开启的。
+	```
