@@ -196,9 +196,8 @@ import { SparklesIcon } from '@heroicons/react/24/outline';
 3. **可访问性**: 动画可能影响某些用户的体验
 
 ### 风险缓解策略
-1. **性能监控**: 实施过程中持续监控性能指标
-2. **渐进增强**: 为不支持的浏览器提供回退方案
-3. **可访问性测试**: 严格测试 `prefers-reduced-motion` 支持
+1. **渐进增强**: 为不支持的浏览器提供回退方案
+2. **可访问性测试**: 严格测试 `prefers-reduced-motion` 支持
 
 ## 开发里程碑
 

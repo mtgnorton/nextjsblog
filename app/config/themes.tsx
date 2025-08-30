@@ -52,7 +52,7 @@ export function getThemeConfig(themeName: ThemeType): ThemeConfig {
   return config;
 }
 
-// 获取下一个主题
+// 获取下一个主题 - 恢复四个主题的循环切换
 export function getNextTheme(currentTheme: ThemeType): ThemeType {
   const currentIndex = themes.findIndex(theme => theme.name === currentTheme);
   const nextIndex = currentIndex === themes.length - 1 ? 0 : currentIndex + 1;
@@ -61,5 +61,5 @@ export function getNextTheme(currentTheme: ThemeType): ThemeType {
 
 // 获取默认主题
 export function getDefaultTheme(): ThemeType {
-  return 'light';
+  return 'starry-sky';
 }

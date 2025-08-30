@@ -2,6 +2,99 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 全局主题过渡动画 */
+*,
+*::before,
+*::after {
+  transition: 
+    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 为特定元素添加更平滑的过渡 */
+body, html {
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 链接和按钮的过渡优化 */
+a, button {
+  transition: 
+    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 主题容器的过渡效果 */
+.theme-container {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 主题切换按钮的特殊效果 */
+.theme-toggle-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-toggle-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: currentColor;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease-in-out, height 0.3s ease-in-out;
+  opacity: 0.1;
+  z-index: -1;
+}
+
+.theme-toggle-button:hover::before {
+  width: 100%;
+  height: 100%;
+}
+
+/* 图标旋转动画优化 */
+.theme-icon {
+  transform-origin: center;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.theme-toggle-button:hover .theme-icon {
+  transform: rotate(180deg) scale(1.1);
+}
+
+/* 主题切换时的页面动画 */
+@keyframes theme-switch {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.theme-switching {
+  animation: theme-switch 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 主题切换按钮的点击反馈 */
+.theme-toggle-button:active {
+  transform: scale(0.95);
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-toggle-button:active .theme-icon {
+  transform: rotate(90deg) scale(0.9);
+}
+
 /* 移除数字输入框的默认样式，使其看起来像普通文本框 */
 input[type='number'] {
   -moz-appearance: textfield;
@@ -56,7 +149,7 @@ input[type='number']::-webkit-outer-spin-button {
   --background: 8, 8, 20;           /* 深空蓝黑色 */
   --heading: 240, 248, 255;         /* 爱丽丝蓝用于标题 */
   --primary: 220, 220, 220;         /* 浅灰色用于正文 */
-  --link: 135, 206, 250;            /* 浅天蓝色用于链接 */
+  --link: 220, 220, 220;            /* 浅天蓝色用于链接 */
   --visited: 147, 112, 219;         /* 中等石板蓝用于已访问链接 */
   --underline: 100, 149, 237;       /* 矢车菊蓝用于下划线 */
   --hover: 173, 216, 230;           /* 浅蓝色用于悬停状态 */
@@ -189,29 +282,15 @@ code:not(pre code):hover {
   backface-visibility: hidden;
   /* 性能优化 */
   contain: strict;
-}
-
-/* 性能调试信息样式 */
-.performance-debug {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.8);
-  color: #ffffff;
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-family: monospace;
-  font-size: 12px;
-  z-index: 9999;
+  /* 确保子元素可以接收点击事件 */
   pointer-events: none;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.performance-debug small {
-  display: block;
-  line-height: 1.4;
+.starry-background > * {
+  pointer-events: auto;
 }
+
+
 
 /* 星云背景渐变 - 硬件加速优化 */
 .nebula-gradient {
@@ -387,6 +466,37 @@ code:not(pre code):hover {
   border: 1px solid rgba(80, 80, 120, 0.3);
 }
 
+/* 圆月样式 */
+.moon {
+  position: absolute;
+  top: 15%;
+  right: 10%;
+  width: 80px;
+  height: 80px;
+  background: #f5f5dc;
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgba(245, 245, 220, 0.3), 0 0 40px rgba(245, 245, 220, 0.1);
+  z-index: 10;
+}
+
+/* 响应式圆月大小 */
+@media (max-width: 768px) {
+  .moon {
+    width: 60px;
+    height: 60px;
+    top: 12%;
+    right: 8%;
+  }
+}
+
+@media (max-width: 480px) {
+  .moon {
+    width: 45px;
+    height: 45px;
+    top: 10%;
+    right: 6%;
+  }
+}
 
 /* 性能优化和内存泄漏防护 */
 
@@ -517,12 +627,7 @@ code:not(pre code):hover {
   animation-play-state: paused;
 }
 
-/* 性能监控辅助类 */
-.performance-monitor {
-  /* 用于性能监控的辅助样式 */
-  contain: strict;
-  will-change: auto;
-}
+
 
 /* 内存清理辅助 */
 .cleanup-animations .star {

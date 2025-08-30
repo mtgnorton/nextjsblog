@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/app/provider/theme';
 import '@/app/(blog)/blog/atom-one-dark.css';
 import Nav from "@/app/ui/components/nav";
 import Title from "@/app/ui/components/title";
+import ThemeChange from "@/app/ui/components/theme-change";
 import Footer from "@/app/ui/components/footer";
 export const metadata: Metadata = {
   title: {
@@ -27,8 +28,10 @@ export default function RootLayout({
       <body className={`${inter.className} antialiased h-100 w-100 overflow-x-hidden`} >
         <ThemeProvider>
         <div className="text-primary flex flex-col min-h-screen max-w-[calc(700px-2*env(safe-area-inset-left))] mx-auto p-5 ">
-       <div >
-       <Title />
+       {/* 标题和主题切换按钮在同一行 */}
+       <div className="flex flex-row justify-between items-center">
+         <Title />
+         <ThemeChange />
        </div>
         {/* menu */}
         <div className="mt-10 mb-5">

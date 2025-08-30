@@ -5,7 +5,6 @@ import { createContext, useContext } from "react";
 import { ThemeContextType, ThemeType } from "@/app/types/theme";
 import { getThemeConfig, getNextTheme, getDefaultTheme } from "@/app/config/themes";
 import { migrateThemeSettings, getSystemPreferredTheme } from "@/app/utils/theme-migration";
-import PerformanceMonitor from "@/app/ui/components/performance-monitor";
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
@@ -64,8 +63,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           </div>
         )}
         {children}
-        {/* 性能监控组件 - 仅在开发环境显示 */}
-        <PerformanceMonitor />
+
       </div>
     </ThemeContext.Provider>
   );

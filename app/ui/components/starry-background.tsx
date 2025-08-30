@@ -21,15 +21,15 @@ export default function StarryBackground({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 检查用户是否偏好减少动画
-  const prefersReducedMotion = typeof window !== 'undefined' 
-    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches 
+  const prefersReducedMotion = typeof window !== 'undefined'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
     : false;
 
   // 使用useMemo缓存星星数据，避免重复计算
   const stars = useMemo(() => {
     // 如果用户偏好减少动画，减少星星数量
     const adjustedStarsCount = prefersReducedMotion ? Math.min(starsCount, 20) : starsCount;
-    
+
     const starsArray = [];
     for (let i = 0; i < adjustedStarsCount; i++) {
       const star = {
@@ -50,7 +50,7 @@ export default function StarryBackground({
     if (prefersReducedMotion) {
       return ''; // 禁用所有动画
     }
-    
+
     const classes = [];
     if (enableTwinkle) classes.push('twinkle');
     if (enableFloat) classes.push('float');
@@ -80,7 +80,7 @@ export default function StarryBackground({
     <div className="starry-background" ref={containerRef}>
       {/* 星云背景渐变 */}
       <div className={`nebula-gradient ${prefersReducedMotion ? 'static' : ''}`} />
-      
+
       {/* 星星层 */}
       <div className="stars-container">
         {stars.map((star) => (
@@ -91,6 +91,10 @@ export default function StarryBackground({
           />
         ))}
       </div>
+
+      {/* 圆月 */}
+      <div className="moon" />
+
     </div>
   );
 }

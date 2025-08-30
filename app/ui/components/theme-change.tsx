@@ -1,47 +1,55 @@
 'use client';
 import { useTheme } from '@/app/provider/theme';
-import { getNextTheme, getThemeConfig } from '@/app/config/themes';
 
 export default function ThemeToggle() {
   const { theme, themeConfig, toggleTheme } = useTheme();
-  
-  // 获取下一个主题的配置，用于显示对应的图标
-  const nextTheme = getNextTheme(theme);
-  const nextThemeConfig = getThemeConfig(nextTheme);
-  const NextIcon = nextThemeConfig.icon;
 
-  // 根据当前主题确定按钮样式
-  const getButtonStyle = () => {
-    switch (theme) {
-      case 'light':
-        return 'bg-dark text-light';
-      case 'dark':
-        return 'bg-yellow text-dark';
-      case 'yellow':
-        return 'bg-gray-800 text-white';
-      case 'starry-sky':
-        return 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg';
-      default:
-        return 'bg-dark text-light';
-    }
+  // 主题切换时添加页面动画
+  const handleToggle = () => {
+    // 添加切换动画类
+    document.body.classList.add('theme-switching');
+
+    // 执行主题切换
+    toggleTheme();
+
+    // 动画完成后移除类
+    setTimeout(() => {
+      document.body.classList.remove('theme-switching');
+    }, 400);
   };
 
-  // 获取按钮的特殊效果类
-  const getButtonEffects = () => {
-    if (theme === 'starry-sky') {
-      return 'hover:shadow-purple-500/25 hover:scale-105 transition-all duration-300';
+  // 使用当前主题对应的图标
+  const Icon = themeConfig.icon;
+
+  // 简约的按钮样式
+  const getButtonStyle = () => {
+    return 'theme-toggle-button p-2 rounded-full bg-transparent border-2 border-current hover:border-opacity-80';
+  };
+
+  // 获取提示文本 - 显示下一个主题的名称
+  const getTooltip = () => {
+    switch (theme) {
+      case 'light':
+        return '切换到深色主题';
+      case 'dark':
+        return '切换到黄色主题';
+      case 'yellow':
+        return '切换到星空主题';
+      case 'starry-sky':
+        return '切换到浅色主题';
+      default:
+        return '切换主题';
     }
-    return 'hover:opacity-80 transition-colors duration-200';
   };
 
   return (
-    <button 
-      onClick={toggleTheme}
-      className={`p-1 rounded ${getButtonStyle()} ${getButtonEffects()}`}
-      title={`切换到${nextThemeConfig.displayName}主题`}
-      aria-label={`当前主题: ${themeConfig.displayName}，点击切换到${nextThemeConfig.displayName}主题`}
+    <button
+      onClick={handleToggle}
+      className={getButtonStyle()}
+      title={getTooltip()}
+      aria-label={getTooltip()}
     >
-      <NextIcon className={`size-5 ${theme === 'starry-sky' ? 'animate-pulse' : ''}`} />
+      <Icon className="theme-icon size-5" />
     </button>
   );
 }

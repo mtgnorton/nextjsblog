@@ -40,14 +40,15 @@ export function migrateThemeSettings(): ThemeType | null {
  */
 export function getSystemPreferredTheme(): ThemeType {
   if (typeof window === 'undefined') {
-    return 'light';
+    return 'starry-sky';
   }
 
   try {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    // 默认使用星空主题，不再根据系统偏好自动切换
+    return 'starry-sky';
   } catch (error) {
     console.error('获取系统主题偏好时发生错误:', error);
-    return 'light';
+    return 'starry-sky';
   }
 }
 
