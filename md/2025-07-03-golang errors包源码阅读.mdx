@@ -1,0 +1,108 @@
+## Join()
+```go
+func Join(errs ...error) error {
+	n := 0
+	for _, err := range errs {
+		if err != nil {
+			n++
+		}
+	}
+	if n == 0 {
+		return nil
+	}
+	e := &joinError{
+		errs: make([]error, 0, n),
+	}
+	for _, err := range errs {
+		if err != nil {
+			e.errs = append(e.errs, err)
+		}
+	}
+	return e
+}
+```
+使用了两次循环遍历errs,第一次循环确定了确切的所需容量 n。第二次循环利用这个容量 n 来一次性地分配内存，从而避免了后续潜在的多次内存重新分配和数据拷贝，提高了函数的效率。
+
+```go
+func (e *joinError) Error() string {
+	// Since Join returns nil if every value in errs is nil,
+	// e.errs cannot be empty.
+	if len(e.errs) == 1 {
+		return e.errs[0].Error()
+	}
+
+	b := []byte(e.errs[0].Error())
+	for _, err := range e.errs[1:] {
+		b = append(b, '\n')
+		b = append(b, err.Error()...)
+	}
+	// At this point, b has at least one byte '\n'.
+	return unsafe.String(&b[0], len(b))
+}
+```
+Error()方法为什么使用unsafe.String而不是string(b)
+
+- string(b)： 当你使用 string(b) 进行类型转换时，Go 运行时会新分配一块内存，然后将 b（即 []byte 切片）中的所有字节拷贝到这块新的内存中，最后返回一个指向这块新内存的字符串。这个过程涉及内存分配和数据拷贝，都是有成本的操作。
+
+- unsafe.String(&b[0], len(b))： unsafe.String 的设计目的就是为了避免这种拷贝。它直接将 b 的底层数组的起始地址和长度“解释”为一个字符串。这意味着它没有新的内存分配，也没有数据拷贝。它只是创建了一个指向现有字节数据的字符串头（包含指针和长度）。
+
+## Unwrap()
+```go
+func Unwrap(err error) error {
+	u, ok := err.(interface {
+		Unwrap() error
+	})
+	if !ok {
+		return nil
+	}
+	return u.Unwrap()
+}
+```
+- Unwrap 只处理返回单个错误的情况。它不处理像 `errors.Join` 那样返回 []error 的 Unwrap 方法。
+- 当需要获取一个包装链中的“下一个”原始错误时。例如，`fmt.Errorf("wrapped: %w", originalErr)` 创建的错误就可以通过 `Unwrap` 解包出 `originalErr`。
+
+
+## Is()
+```go
+func Is(err, target error) bool {
+	if err == nil || target == nil {
+		return err == target
+	}
+
+	isComparable := reflectlite.TypeOf(target).Comparable()
+	return is(err, target, isComparable)
+}
+```
+哪些error是可比较的,哪些error是不可比较的
+- 可比较的错误:
+如果实现错误的结构体中包含的字段类型是可比较的,那么这个错误就是可比较的,可比较的类型如下:
+
+    - 布尔型 (bool)：true == false
+
+    - 数字类型 (int, float64, complex128 等)：1 == 1
+
+    - 字符串 (string)："hello" == "hello"
+
+    - 指针 (*T)：如果两个指针指向同一个地址，则它们相等（nil 指针之间也相等）。
+
+    - 通道 (chan T)：如果两个通道引用同一个通道值，则它们相等（nil 通道之间也相等）。
+
+    - 接口 (interface)：
+
+        - 如果两个接口值都是 nil，则它们相等。
+
+        - 如果两个接口值都不是 nil，并且它们的动态类型相同且动态值可比较且相等，则它们相等。
+
+    - 结构体 (struct)：如果一个结构体的所有字段都可比较，那么这个结构体就是可比较的。两个结构体相等当且仅当它们对应字段的值都相等。
+
+    - 数组 ([N]T)：如果数组的元素类型可比较，那么这个数组就是可比较的。两个数组相等当且仅当它们对应位置的元素都相等。
+
+- 不可比较的错误:
+如果实现错误的结构体中包含的字段类型是不可比较的,那么这个错误就是不可比较的,不可比较的类型如下:
+
+    - 切片 ([]T)：两个切片即使内容相同，也不相等，因为它们的地址不同。
+
+    - 映射 (map[K]V)：两个映射即使内容相同，也不相等，因为它们的地址不同。
+
+    - 函数 (func)：函数不可比较，只能与 nil 比较。
+

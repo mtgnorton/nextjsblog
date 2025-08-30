@@ -52,6 +52,17 @@ input[type='number']::-webkit-outer-spin-button {
   background: rgba(var(--background));
 }
 
+.starry-sky {
+  --background: 8, 8, 20;           /* 深空蓝黑色 */
+  --heading: 240, 248, 255;         /* 爱丽丝蓝用于标题 */
+  --primary: 220, 220, 220;         /* 浅灰色用于正文 */
+  --link: 135, 206, 250;            /* 浅天蓝色用于链接 */
+  --visited: 147, 112, 219;         /* 中等石板蓝用于已访问链接 */
+  --underline: 100, 149, 237;       /* 矢车菊蓝用于下划线 */
+  --hover: 173, 216, 230;           /* 浅蓝色用于悬停状态 */
+  background: rgba(var(--background));
+}
+
 
 
 
@@ -103,4 +114,419 @@ code:not(pre code):hover {
   transition: background-color 0.2s ease;
 }
 
+/* 星空主题动画样式 - 硬件加速优化版本 */
+@keyframes twinkle {
+  0%, 100% { 
+    opacity: 0.3; 
+    transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  }
+  50% { 
+    opacity: 1; 
+    transform: translate3d(0, 0, 0) scale3d(1.2, 1.2, 1);
+  }
+}
 
+@keyframes float {
+  0%, 100% { 
+    transform: translate3d(0px, 0px, 0); 
+  }
+  25% { 
+    transform: translate3d(1px, -2px, 0); 
+  }
+  50% { 
+    transform: translate3d(-1px, -1px, 0); 
+  }
+  75% { 
+    transform: translate3d(2px, 1px, 0); 
+  }
+}
+
+@keyframes shimmer {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.4; }
+}
+
+/* 性能优化的动画变体 - 降级模式使用 */
+@keyframes twinkle-reduced {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes float-reduced {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -1px, 0); }
+}
+
+/* 主题容器样式 */
+.theme-container {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* 主题背景容器 */
+.theme-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* 星空背景组件样式 - 性能优化版本 */
+.starry-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* 硬件加速优化 */
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  /* 性能优化 */
+  contain: strict;
+}
+
+/* 性能调试信息样式 */
+.performance-debug {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  z-index: 9999;
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.performance-debug small {
+  display: block;
+  line-height: 1.4;
+}
+
+/* 星云背景渐变 - 硬件加速优化 */
+.nebula-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    rgba(8, 8, 20, 1) 0%,
+    rgba(20, 20, 40, 0.9) 25%,
+    rgba(40, 20, 60, 0.7) 50%,
+    rgba(20, 40, 80, 0.8) 75%,
+    rgba(8, 8, 20, 1) 100%
+  );
+  /* 硬件加速优化 */
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  /* 性能优化 */
+  contain: strict;
+}
+
+/* 静态版本 - 降级模式使用 */
+.nebula-gradient.static {
+  background: rgba(8, 8, 20, 1);
+  /* 移除复杂渐变以提升性能 */
+}
+
+/* 星星容器 - 性能优化 */
+.stars-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* 优化重绘性能 */
+  contain: layout style paint;
+  /* 硬件加速 */
+  transform: translate3d(0, 0, 0);
+  /* 防止内存泄漏的优化 */
+  overflow: hidden;
+}
+
+/* 星星基础样式 - 硬件加速优化 */
+.star {
+  position: absolute;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #ffffff, 0 0 12px #ffffff, 0 0 18px #ffffff;
+  /* 硬件加速优化 */
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  /* 性能优化 - 只在需要时启用will-change */
+  will-change: auto;
+  /* 使用contain优化重绘性能 */
+  contain: layout style paint;
+}
+
+/* 闪烁动画 - 优化版本 */
+.star.twinkle {
+  animation: twinkle 3s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* 浮动动画 - 优化版本 */
+.star.float {
+  animation: float 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* 组合动画 - 优化版本 */
+.star.twinkle.float {
+  animation: twinkle 3s ease-in-out infinite, float 6s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* 响应式设计 - 智能性能优化 */
+@media (max-width: 768px) {
+  /* 移动设备上减少星星数量 */
+  .stars-container .star:nth-child(n+31) {
+    display: none;
+  }
+  
+  /* 移动设备上使用简化动画 */
+  .star.twinkle {
+    animation: twinkle-reduced 4s ease-in-out infinite;
+  }
+  
+  .star.float {
+    animation: float-reduced 8s ease-in-out infinite;
+  }
+  
+  /* 移动设备上简化背景 */
+  .nebula-gradient {
+    background: linear-gradient(
+      135deg,
+      rgba(8, 8, 20, 1) 0%,
+      rgba(20, 20, 40, 0.8) 50%,
+      rgba(8, 8, 20, 1) 100%
+    );
+  }
+}
+
+/* 小屏幕设备进一步优化 */
+@media (max-width: 480px) {
+  .stars-container .star:nth-child(n+21) {
+    display: none;
+  }
+  
+  .star {
+    box-shadow: 0 0 3px #ffffff;
+  }
+}
+
+/* 尊重用户的动画偏好 - 完全禁用动画 */
+@media (prefers-reduced-motion: reduce) {
+  .star {
+    animation: none !important;
+    will-change: auto !important;
+  }
+  
+  .nebula-gradient {
+    background: rgba(8, 8, 20, 1) !important;
+  }
+  
+  /* 移除所有动画相关的性能优化 */
+  .star,
+  .nebula-gradient {
+    transform: none !important;
+    will-change: auto !important;
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .star {
+    background: #ffffff;
+    box-shadow: 0 0 2px #000000, 0 0 4px #ffffff;
+  }
+  
+  .nebula-gradient {
+    background: rgba(0, 0, 0, 1);
+  }
+}
+
+/* 低端设备优化 - 通过CSS检测 */
+@media (max-resolution: 150dpi) and (max-width: 1024px) {
+  .stars-container .star:nth-child(n+26) {
+    display: none;
+  }
+  
+  .star {
+    box-shadow: 0 0 4px #ffffff;
+  }
+  
+  .star.twinkle,
+  .star.float {
+    animation-duration: 5s;
+  }
+}
+
+/* 星空主题基本样式 - 简化版本 */
+.starry-sky {
+  color: rgba(var(--primary));
+}
+
+/* 代码块样式 - 确保在深色背景下可读 */
+.starry-sky code:not(pre code) {
+  background-color: rgba(30, 30, 50, 0.8);
+  color: rgba(var(--primary));
+  border: 1px solid rgba(80, 80, 120, 0.3);
+}
+
+
+/* 性能优化和内存泄漏防护 */
+
+/* 动画性能优化 - 使用GPU加速的属性 */
+.star.twinkle,
+.star.float {
+  /* 强制使用合成层 */
+  transform: translate3d(0, 0, 0);
+  /* 优化动画性能 */
+  animation-fill-mode: both;
+  /* 防止动画闪烁 */
+  backface-visibility: hidden;
+}
+
+/* 内存泄漏防护 - 动画完成后清理 */
+.star:not(.twinkle):not(.float) {
+  will-change: auto;
+  transform: translate3d(0, 0, 0);
+}
+
+/* 智能降级 - 低性能设备优化 */
+@media (max-device-pixel-ratio: 1.5) and (max-width: 1024px) {
+  .star {
+    /* 减少阴影复杂度 */
+    box-shadow: 0 0 4px #ffffff;
+  }
+  
+  .star.twinkle {
+    /* 使用更简单的动画 */
+    animation: twinkle-reduced 4s ease-in-out infinite;
+  }
+  
+  .star.float {
+    /* 禁用浮动动画以节省性能 */
+    animation: none;
+  }
+}
+
+/* CPU密集型动画的优化 */
+@supports (will-change: transform) {
+  .star.twinkle,
+  .star.float {
+    will-change: transform, opacity;
+  }
+}
+
+@supports not (will-change: transform) {
+  /* 不支持will-change的浏览器回退 */
+  .star.twinkle,
+  .star.float {
+    /* 使用更保守的动画 */
+    animation-duration: 5s;
+  }
+}
+
+/* 电池优化 - 检测电池状态（如果支持） */
+@media (prefers-reduced-motion: no-preference) {
+  .star.battery-saver {
+    animation-duration: 8s;
+    animation-iteration-count: 3;
+  }
+}
+
+/* 内存使用优化 */
+.stars-container {
+  /* 限制重绘区域 */
+  isolation: isolate;
+  /* 优化层叠上下文 */
+  z-index: 0;
+}
+
+/* 防止动画累积导致的性能问题 */
+.star {
+  /* 限制动画的影响范围 */
+  contain: layout style paint;
+  /* 防止子元素影响 */
+  isolation: isolate;
+}
+
+/* 高刷新率显示器优化 */
+@media (min-resolution: 120dpi) {
+  .star.twinkle {
+    /* 高刷新率下使用更平滑的动画 */
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+  .star {
+    /* 触摸设备上减少动画复杂度 */
+    box-shadow: 0 0 3px #ffffff;
+  }
+  
+  .star.float {
+    /* 触摸设备上禁用浮动动画 */
+    animation: none;
+  }
+}
+
+/* 暗色模式下的性能优化 */
+@media (prefers-color-scheme: dark) {
+  .starry-sky .star {
+    /* 暗色模式下优化发光效果 */
+    box-shadow: 0 0 4px #ffffff, 0 0 8px #ffffff;
+  }
+}
+
+/* 打印模式优化 */
+@media print {
+  .starry-background,
+  .star,
+  .nebula-gradient {
+    display: none !important;
+  }
+}
+
+/* 强制硬件加速的回退方案 */
+@supports not (transform: translate3d(0, 0, 0)) {
+  .star {
+    /* 不支持3D变换的浏览器回退 */
+    transform: translateZ(0);
+  }
+}
+
+/* 动画暂停控制 - 用于调试和性能测试 */
+.starry-background.paused .star {
+  animation-play-state: paused;
+}
+
+/* 性能监控辅助类 */
+.performance-monitor {
+  /* 用于性能监控的辅助样式 */
+  contain: strict;
+  will-change: auto;
+}
+
+/* 内存清理辅助 */
+.cleanup-animations .star {
+  animation: none !important;
+  will-change: auto !important;
+  transform: translate3d(0, 0, 0) !important;
+}
