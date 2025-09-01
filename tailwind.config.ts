@@ -25,25 +25,23 @@ export default {
       typography: {
         DEFAULT: {
           css: {
-            color: 'rgba(var(--primary))',
+            color: "rgba(var(--primary))",
             h1: {
-              color: 'rgba(var(--heading))',
+              color: "rgba(var(--heading))",
             },
             h2: {
-              color: 'rgba(var(--heading))',
+              color: "rgba(var(--heading))",
             },
             h3: {
-              color: 'rgba(var(--heading))',
+              color: "rgba(var(--heading))",
             },
             ul: {
-              listStyleType: 'disc',
+              listStyleType: "disc",
             },
           },
         },
       },
     },
   },
-  plugins: [
-    require('@tailwindcss/typography'),
-  ],
+  plugins: [require("@tailwindcss/typography")],
 } satisfies Config;

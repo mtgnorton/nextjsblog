@@ -10,8 +10,8 @@ interface PostItem {
 }
 
 interface PostsPagination {
-    posts: PostItem[];
-    totalPages: number;
+  posts: PostItem[];
+  totalPages: number;
 }
 
 interface PostsArg {
@@ -29,7 +29,7 @@ export async function getPosts(props?: PostsArg): Promise<PostsPagination> {
   const posts = fileNames.map((fileName) => {
     // 假设文件名格式为: YYYY-MM-DD-title.mdx
     const match = fileName.match(/^(\d{4}-\d{2}-\d{2})-(.+)\.mdx$/);
-    
+
     if (!match) {
       // 如果文件名不符合格式，使用当前时间
       return {
@@ -49,7 +49,7 @@ export async function getPosts(props?: PostsArg): Promise<PostsPagination> {
 
   // 根据 sortOrder 参数排序
   const sortedPosts = posts.sort((a, b) => {
-    const order = props?.sort === 'asc' ? 1 : -1; 
+    const order = props?.sort === 'asc' ? 1 : -1;
     return order * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
   });
 
@@ -81,25 +81,25 @@ export default async function PostsComponents({
   isShowPagination = false,
   totalPages = 0
 }: {
-    posts: PostItem[];
-    isShowPagination?: boolean;
-    totalPages: number;
+  posts: PostItem[];
+  isShowPagination?: boolean;
+  totalPages: number;
 }) {
-    
+
   return (
     <div className="flex flex-col w-full">
       {posts.map((post) => (
         <div key={post.filename} className="flex flex-row mt-4">
           <span className="w-36 flex-shrink-0">{post.updatedAt}</span>
-          <Link 
+          <Link
             href={`/blog/${encodeURIComponent(post.filename)}`}
-            className="text-link border-b-2 border-b-underline hover:text-hover"
+            className="text-link hover:text-hover blog-title-link"
           >
             {post.title}
           </Link>
         </div>
       ))}
-      
+
       {isShowPagination && (
         <div className="mt-8 flex justify-center">
           <Pagination totalPages={totalPages} />

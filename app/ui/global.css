@@ -6,22 +6,22 @@
 *,
 *::before,
 *::after {
-  transition: 
-    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 为特定元素添加更平滑的过渡 */
-body, html {
+body,
+html {
   transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 链接和按钮的过渡优化 */
-a, button {
-  transition: 
-    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+a,
+button {
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
     color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -39,7 +39,7 @@ a, button {
 }
 
 .theme-toggle-button::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   left: 50%;
@@ -96,19 +96,19 @@ a, button {
 }
 
 /* 移除数字输入框的默认样式，使其看起来像普通文本框 */
-input[type='number'] {
+input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
 
 /* 移除 Chrome/Safari 浏览器中数字输入框内部的上下箭头按钮 */
-input[type='number']::-webkit-inner-spin-button {
+input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
 /* 移除 Chrome/Safari 浏览器中数字输入框外部的上下箭头按钮 */
-input[type='number']::-webkit-outer-spin-button {
+input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
@@ -124,7 +124,7 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 .dark {
-  --background: 1, 36, 46; 
+  --background: 1, 36, 46;
   --heading: 238, 238, 238;
   --primary: 221, 221, 221;
   --link: 140, 194, 221;
@@ -136,7 +136,7 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 .yellow {
-  --background: 241, 231, 208;   
+  --background: 241, 231, 208;
   --heading: 35, 35, 51;
   --primary: 35, 35, 51;
   --link: 35, 35, 51;
@@ -146,18 +146,15 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 .starry-sky {
-  --background: 8, 8, 20;           /* 深空蓝黑色 */
-  --heading: 240, 248, 255;         /* 爱丽丝蓝用于标题 */
-  --primary: 220, 220, 220;         /* 浅灰色用于正文 */
-  --link: 220, 220, 220;            /* 浅天蓝色用于链接 */
-  --visited: 147, 112, 219;         /* 中等石板蓝用于已访问链接 */
-  --underline: 100, 149, 237;       /* 矢车菊蓝用于下划线 */
-  --hover: 173, 216, 230;           /* 浅蓝色用于悬停状态 */
+  --background: 8, 8, 20; /* 深空蓝黑色 */
+  --heading: 240, 248, 255; /* 爱丽丝蓝用于标题 */
+  --primary: 220, 220, 220; /* 浅灰色用于正文 */
+  --link: 220, 220, 220; /* 浅天蓝色用于链接 */
+  --visited: 147, 112, 219; /* 中等石板蓝用于已访问链接 */
+  --underline: 100, 149, 237; /* 矢车菊蓝用于下划线 */
+  --hover: 173, 216, 230; /* 浅蓝色用于悬停状态 */
   background: rgba(var(--background));
 }
-
-
-
 
 /* 自定义滚动条样式 */
 .styled-scrollbar {
@@ -197,7 +194,8 @@ code:not(pre code) {
   font-size: 0.4em;
   background-color: rgba(175, 184, 193, 0.2);
   border-radius: 4px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
   font-weight: 500;
 }
 
@@ -209,46 +207,64 @@ code:not(pre code):hover {
 
 /* 星空主题动画样式 - 硬件加速优化版本 */
 @keyframes twinkle {
-  0%, 100% { 
-    opacity: 0.3; 
+  0%,
+  100% {
+    opacity: 0.3;
     transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
   }
-  50% { 
-    opacity: 1; 
+  50% {
+    opacity: 1;
     transform: translate3d(0, 0, 0) scale3d(1.2, 1.2, 1);
   }
 }
 
 @keyframes float {
-  0%, 100% { 
-    transform: translate3d(0px, 0px, 0); 
+  0%,
+  100% {
+    transform: translate3d(0px, 0px, 0);
   }
-  25% { 
-    transform: translate3d(1px, -2px, 0); 
+  25% {
+    transform: translate3d(1px, -2px, 0);
   }
-  50% { 
-    transform: translate3d(-1px, -1px, 0); 
+  50% {
+    transform: translate3d(-1px, -1px, 0);
   }
-  75% { 
-    transform: translate3d(2px, 1px, 0); 
+  75% {
+    transform: translate3d(2px, 1px, 0);
   }
 }
 
 @keyframes shimmer {
-  0% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-  100% { opacity: 0.4; }
+  0% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0.4;
+  }
 }
 
 /* 性能优化的动画变体 - 降级模式使用 */
 @keyframes twinkle-reduced {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 0.8; }
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 
 @keyframes float-reduced {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(0, -1px, 0); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -1px, 0);
+  }
 }
 
 /* 主题容器样式 */
@@ -289,8 +305,6 @@ code:not(pre code):hover {
 .starry-background > * {
   pointer-events: auto;
 }
-
-
 
 /* 星云背景渐变 - 硬件加速优化 */
 .nebula-gradient {
@@ -372,19 +386,19 @@ code:not(pre code):hover {
 /* 响应式设计 - 智能性能优化 */
 @media (max-width: 768px) {
   /* 移动设备上减少星星数量 */
-  .stars-container .star:nth-child(n+31) {
+  .stars-container .star:nth-child(n + 31) {
     display: none;
   }
-  
+
   /* 移动设备上使用简化动画 */
   .star.twinkle {
     animation: twinkle-reduced 4s ease-in-out infinite;
   }
-  
+
   .star.float {
     animation: float-reduced 8s ease-in-out infinite;
   }
-  
+
   /* 移动设备上简化背景 */
   .nebula-gradient {
     background: linear-gradient(
@@ -398,10 +412,10 @@ code:not(pre code):hover {
 
 /* 小屏幕设备进一步优化 */
 @media (max-width: 480px) {
-  .stars-container .star:nth-child(n+21) {
+  .stars-container .star:nth-child(n + 21) {
     display: none;
   }
-  
+
   .star {
     box-shadow: 0 0 3px #ffffff;
   }
@@ -413,11 +427,11 @@ code:not(pre code):hover {
     animation: none !important;
     will-change: auto !important;
   }
-  
+
   .nebula-gradient {
     background: rgba(8, 8, 20, 1) !important;
   }
-  
+
   /* 移除所有动画相关的性能优化 */
   .star,
   .nebula-gradient {
@@ -432,7 +446,7 @@ code:not(pre code):hover {
     background: #ffffff;
     box-shadow: 0 0 2px #000000, 0 0 4px #ffffff;
   }
-  
+
   .nebula-gradient {
     background: rgba(0, 0, 0, 1);
   }
@@ -440,14 +454,14 @@ code:not(pre code):hover {
 
 /* 低端设备优化 - 通过CSS检测 */
 @media (max-resolution: 150dpi) and (max-width: 1024px) {
-  .stars-container .star:nth-child(n+26) {
+  .stars-container .star:nth-child(n + 26) {
     display: none;
   }
-  
+
   .star {
     box-shadow: 0 0 4px #ffffff;
   }
-  
+
   .star.twinkle,
   .star.float {
     animation-duration: 5s;
@@ -457,6 +471,48 @@ code:not(pre code):hover {
 /* 星空主题基本样式 - 简化版本 */
 .starry-sky {
   color: rgba(var(--primary));
+}
+
+/* 星空主题下的 prose 标题样式 - 柔和的白色 */
+.starry-sky .prose h1,
+.starry-sky .prose h2,
+.starry-sky .prose h3,
+.starry-sky .prose h4,
+.starry-sky .prose h5,
+.starry-sky .prose h6 {
+  color: #e8e8e8 !important;
+}
+
+/* 星空主题下的 prose 标题链接样式 - 处理标题中的链接 */
+.starry-sky .prose h1 a,
+.starry-sky .prose h2 a,
+.starry-sky .prose h3 a,
+.starry-sky .prose h4 a,
+.starry-sky .prose h5 a,
+.starry-sky .prose h6 a {
+  color: #e8e8e8 !important;
+  text-decoration: none !important;
+}
+
+/* 星空主题下覆盖 Tailwind prose 的链接颜色变量 */
+.starry-sky .prose {
+  --tw-prose-links: #e8e8e8;
+  --tw-prose-headings: #e8e8e8;
+}
+
+/* 博客标题链接样式 - 支持换行时的下划线 */
+.blog-title-link {
+  position: relative;
+  text-decoration: none;
+  display: inline;
+  background-image: linear-gradient(rgba(var(--underline)), rgba(var(--underline)));
+  background-size: 100% 2px;
+  background-repeat: no-repeat;
+  background-position: 0 calc(100% - 2px);
+  /* 支持换行的关键属性 */
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding-bottom: 2px;
 }
 
 /* 代码块样式 - 确保在深色背景下可读 */
@@ -475,7 +531,8 @@ code:not(pre code):hover {
   height: 80px;
   background: #f5f5dc;
   border-radius: 50%;
-  box-shadow: 0 0 20px rgba(245, 245, 220, 0.3), 0 0 40px rgba(245, 245, 220, 0.1);
+  box-shadow: 0 0 20px rgba(245, 245, 220, 0.3),
+    0 0 40px rgba(245, 245, 220, 0.1);
   z-index: 10;
 }
 
@@ -523,12 +580,12 @@ code:not(pre code):hover {
     /* 减少阴影复杂度 */
     box-shadow: 0 0 4px #ffffff;
   }
-  
+
   .star.twinkle {
     /* 使用更简单的动画 */
     animation: twinkle-reduced 4s ease-in-out infinite;
   }
-  
+
   .star.float {
     /* 禁用浮动动画以节省性能 */
     animation: none;
@@ -590,7 +647,7 @@ code:not(pre code):hover {
     /* 触摸设备上减少动画复杂度 */
     box-shadow: 0 0 3px #ffffff;
   }
-  
+
   .star.float {
     /* 触摸设备上禁用浮动动画 */
     animation: none;
@@ -626,8 +683,6 @@ code:not(pre code):hover {
 .starry-background.paused .star {
   animation-play-state: paused;
 }
-
-
 
 /* 内存清理辅助 */
 .cleanup-animations .star {
